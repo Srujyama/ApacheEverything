@@ -297,3 +297,11 @@ code {
   border-radius: 3px;
   transition: width var(--transition-normal);
 }
+
+/* Lazy-loaded page Suspense fallback */
+.page-loading {
+  padding: 64px 16px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}

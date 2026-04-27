@@ -1,0 +1,9 @@
+{
+  "name": "@sunny/sdk-ts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TypeScript surface for the Sunny connector SDK. Phase 0 placeholder; phase 7 wraps the connector RPC contract.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts"
+}

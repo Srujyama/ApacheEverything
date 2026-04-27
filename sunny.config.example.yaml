@@ -1,0 +1,54 @@
+# Sunny example configuration.
+#
+# Copy to sunny.config.yaml and edit. SUNNY_CONFIG=/path/to/file overrides.
+# When this file is absent, Sunny boots with the no-auth defaults: USGS
+# earthquakes, NOAA weather alerts, USGS river gauges, plus the hello
+# heartbeat connector.
+
+addr: ":3000"
+dataDir: "./data"
+
+connectors:
+  # Heartbeat — emits a record every 2s so you always have a pulse on the bus.
+  - id: hello-1
+    type: hello
+
+  # Earthquakes from USGS, no auth needed. ~10 records per poll on a typical hour.
+  - id: earthquakes
+    type: usgs-earthquakes
+    config:
+      feed: all_hour       # all_hour, all_day, significant_week, etc.
+      pollSeconds: 60
+      minMagnitude: 0      # filter; e.g. 2.5 for "felt" events
+
+  # Active National Weather Service alerts. Skips the keepalive "Test" feed.
+  - id: weather-alerts
+    type: noaa-weather-alerts
+    config:
+      pollSeconds: 60
+      severityMin: ""      # "", Minor, Moderate, Severe, Extreme
+
+  # Major US river gauges. Default site list is curated; override in `sites`.
+  - id: river-gauges
+    type: usgs-water
+    config:
+      pollMinutes: 15
+      parameterCd: "00065" # 00065=gauge height, 00060=streamflow, 00010=temp
+
+  # Wildfire detections from NASA FIRMS. Requires a free MAP_KEY.
+  # Set SUNNY_SECRET_NASA_FIRMS_KEY to enable; idles silently otherwise.
+  - id: fires
+    type: nasa-firms
+    config:
+      source: VIIRS_SNPP_NRT
+      area: USA
+      dayRange: 1
+      pollMinutes: 30
+
+  # Air quality from OpenAQ v3. Requires a free API key.
+  # Set SUNNY_SECRET_OPENAQ_API_KEY to enable; idles silently otherwise.
+  - id: air-quality
+    type: openaq
+    config:
+      countriesId: 155     # USA
+      pollMinutes: 15

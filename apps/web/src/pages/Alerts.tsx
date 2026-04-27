@@ -1,39 +1,91 @@
-import { useState, useEffect } from 'react';
-import {
-  AlertTriangle, Filter, Clock, MapPin, Cpu, Radio, Eye, Tag,
-} from 'lucide-react';
-import { getAlerts } from '../services/alertService';
-import { fetchActiveWeatherAlerts } from '../services/publicDataSources';
-import type { Alert, AlertSeverity } from '../types';
-import { formatTimeAgo, formatTimestamp } from '../utils/format';
-import MetricCard from '../components/common/MetricCard';
+import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, Filter, Search, Check } from 'lucide-react';
+import { ackAlert, getAlertRules, getAlerts } from '../api/sunny';
+import type { Alert, AlertRule } from '../api/types';
+import { formatTimeAgo } from '../utils/format';
 import './Alerts.css';
 
-const SEVERITY_OPTIONS: (AlertSeverity | 'all')[] = ['all', 'emergency', 'critical', 'warning', 'info'];
+const SEVERITIES = ['emergency', 'critical', 'warning', 'info'] as const;
+type Severity = (typeof SEVERITIES)[number];
+
+const SEVERITY_FILL: globalThis.Record<Severity, string> = {
+  emergency: 'var(--severity-emergency)',
+  critical: 'var(--severity-critical)',
+  warning: 'var(--severity-warning)',
+  info: 'var(--severity-info)',
+};
 
 export default function Alerts() {
-  const [selectedSeverity, setSelectedSeverity] = useState<AlertSeverity | 'all'>('all');
-  const [weatherAlerts, setWeatherAlerts] = useState<Alert[]>([]);
-  const [expandedAlert, setExpandedAlert] = useState<string | null>(null);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [rules, setRules] = useState<AlertRule[]>([]);
+  const [filter, setFilter] = useState<Set<Severity>>(new Set(SEVERITIES));
+  const [showAcked, setShowAcked] = useState(false);
+  const [query, setQuery] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  const internalAlerts = getAlerts();
+  const refresh = useMemo(
+    () => async () => {
+      try {
+        const [a, r] = await Promise.all([getAlerts(200), getAlertRules()]);
+        setAlerts(a);
+        setRules(r);
+        setError(null);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
-    fetchActiveWeatherAlerts().then(setWeatherAlerts);
-  }, []);
+    refresh();
+    const id = window.setInterval(refresh, 5000);
+    return () => window.clearInterval(id);
+  }, [refresh]);
 
-  const allAlerts = [...internalAlerts, ...weatherAlerts]
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  const filtered = useMemo(() => {
+    return alerts.filter((a) => {
+      const sev = (a.severity || '').toLowerCase();
+      if (sev && !filter.has(sev as Severity)) return false;
+      if (!showAcked && a.acked) return false;
+      if (query) {
+        const blob = JSON.stringify(a).toLowerCase();
+        if (!blob.includes(query.toLowerCase())) return false;
+      }
+      return true;
+    });
+  }, [alerts, filter, showAcked, query]);
 
-  const filteredAlerts = selectedSeverity === 'all'
-    ? allAlerts
-    : allAlerts.filter(a => a.severity === selectedSeverity);
+  const counts = useMemo(() => {
+    const c: globalThis.Record<Severity, number> = {
+      emergency: 0,
+      critical: 0,
+      warning: 0,
+      info: 0,
+    };
+    for (const a of alerts) {
+      const s = (a.severity || '').toLowerCase();
+      if (s in c) c[s as Severity]++;
+    }
+    return c;
+  }, [alerts]);
 
-  const counts = {
-    emergency: allAlerts.filter(a => a.severity === 'emergency').length,
-    critical: allAlerts.filter(a => a.severity === 'critical').length,
-    warning: allAlerts.filter(a => a.severity === 'warning').length,
-    info: allAlerts.filter(a => a.severity === 'info').length,
+  const toggle = (s: Severity) => {
+    setFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
+      return next;
+    });
+  };
+
+  const handleAck = async (id: string) => {
+    try {
+      await ackAlert(id);
+      refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
   };
 
   return (
@@ -42,97 +94,107 @@ export default function Alerts() {
         <div>
           <h1>Alerts</h1>
           <p className="page-subtitle">
-            Real-time alerts from sensors, AI models, Spark analytics, and public APIs (NOAA, USGS)
+            Triggered by the rule engine. {rules.length} rule
+            {rules.length === 1 ? '' : 's'} active.
           </p>
         </div>
       </div>
 
-      <div className="metrics-grid">
-        <MetricCard label="Emergency" value={counts.emergency} accentColor="var(--severity-emergency)" icon={<AlertTriangle size={16} />} />
-        <MetricCard label="Critical" value={counts.critical} accentColor="var(--severity-critical)" icon={<AlertTriangle size={16} />} />
-        <MetricCard label="Warning" value={counts.warning} accentColor="var(--severity-warning)" icon={<AlertTriangle size={16} />} />
-        <MetricCard label="Info" value={counts.info} accentColor="var(--severity-info)" icon={<Eye size={16} />} />
-      </div>
+      {error && (
+        <div className="card alerts-error">
+          <strong>API error:</strong> {error}
+        </div>
+      )}
 
-      <div className="alerts-toolbar">
-        <div className="severity-filters">
+      <div className="alerts-filters card">
+        <div className="alerts-filter-group">
           <Filter size={14} />
-          {SEVERITY_OPTIONS.map(sev => (
+          {SEVERITIES.map((s) => (
             <button
-              key={sev}
-              className={`severity-filter-btn ${selectedSeverity === sev ? 'active' : ''} ${sev !== 'all' ? `filter-${sev}` : ''}`}
-              onClick={() => setSelectedSeverity(sev)}
+              key={s}
+              className={`alerts-filter-chip ${filter.has(s) ? 'on' : ''}`}
+              style={filter.has(s) ? { borderColor: SEVERITY_FILL[s] } : undefined}
+              onClick={() => toggle(s)}
             >
-              {sev === 'all' ? 'All' : sev}
-              {sev !== 'all' && <span className="filter-count">{counts[sev]}</span>}
+              <span className="dot" style={{ background: SEVERITY_FILL[s] }} />
+              {s} <small>({counts[s]})</small>
             </button>
           ))}
+          <button
+            className={`alerts-filter-chip ${showAcked ? 'on' : ''}`}
+            onClick={() => setShowAcked((v) => !v)}
+          >
+            show acked
+          </button>
         </div>
-        <span className="alert-total">{filteredAlerts.length} alerts</span>
+        <div className="alerts-search">
+          <Search size={14} />
+          <input
+            placeholder="Search alerts…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
       </div>
 
       <div className="alerts-list">
-        {filteredAlerts.map(alert => (
-          <div
-            key={alert.id}
-            className={`alert-card severity-${alert.severity} ${expandedAlert === alert.id ? 'expanded' : ''}`}
-            onClick={() => setExpandedAlert(expandedAlert === alert.id ? null : alert.id)}
-          >
-            <div className="alert-card-indicator">
-              <span className={`status-dot ${alert.severity === 'emergency' ? 'offline' : alert.severity === 'critical' ? 'degraded' : alert.severity === 'warning' ? 'degraded' : 'active'} ${alert.status === 'active' ? 'pulse-dot' : ''}`} />
-            </div>
-            <div className="alert-card-content">
-              <div className="alert-card-top">
-                <span className={`badge badge-${alert.severity}`}>{alert.severity}</span>
-                <span className="alert-source-badge">
-                  {alert.source === 'spark_analytics' && <Cpu size={10} />}
-                  {alert.source === 'public_api' && <Radio size={10} />}
-                  {alert.source === 'sensor' && <Eye size={10} />}
-                  {alert.source === 'ai_model' && <Cpu size={10} />}
-                  {alert.source}
-                </span>
-                <span className="alert-status-badge">{alert.status}</span>
-                <span className="alert-time">
-                  <Clock size={10} /> {formatTimeAgo(alert.timestamp)}
-                </span>
-              </div>
-              <h3 className="alert-card-title">{alert.title}</h3>
-              {expandedAlert === alert.id && (
-                <div className="alert-card-expanded">
-                  <p className="alert-description">{alert.description}</p>
-                  <div className="alert-detail-grid">
-                    {alert.location && (
-                      <div className="alert-detail">
-                        <MapPin size={12} />
-                        <span>{alert.location.lat.toFixed(4)}, {alert.location.lng.toFixed(4)}</span>
-                      </div>
-                    )}
-                    {alert.assetId && (
-                      <div className="alert-detail">
-                        <Eye size={12} />
-                        <span>Asset: {alert.assetId}</span>
-                      </div>
-                    )}
-                    {alert.sensorId && (
-                      <div className="alert-detail">
-                        <Radio size={12} />
-                        <span>Sensor: {alert.sensorId}</span>
-                      </div>
-                    )}
-                    <div className="alert-detail">
-                      <Clock size={12} />
-                      <span>{formatTimestamp(alert.timestamp)}</span>
-                    </div>
-                  </div>
-                  <div className="alert-tags">
-                    <Tag size={12} />
-                    {alert.tags.map(tag => <code key={tag}>{tag}</code>)}
-                  </div>
-                </div>
-              )}
-            </div>
+        {filtered.length === 0 && (
+          <div className="card empty-state">
+            No alerts match. Either nothing critical is happening (good), or no
+            rules are configured for the data flowing in. Default rule fires on
+            <code>tags.severity</code> in <code>[emergency, critical]</code>.
           </div>
-        ))}
+        )}
+        {filtered.map((a) => {
+          const sev = (a.severity || 'info').toLowerCase() as Severity;
+          const fill = SEVERITY_FILL[sev] ?? SEVERITY_FILL.info;
+          const payload = (a.payload ?? {}) as globalThis.Record<string, unknown>;
+          const description =
+            (payload.description as string) ||
+            (payload.areaDesc as string) ||
+            '';
+          return (
+            <div key={a.id} className={`alert-row ${a.acked ? 'alert-row-acked' : ''}`}>
+              <div className="alert-row-side" style={{ background: fill }} />
+              <div className="alert-row-body">
+                <div className="alert-row-head">
+                  <span
+                    className="badge"
+                    style={{ background: fill, color: 'white' }}
+                  >
+                    {sev || 'unknown'}
+                  </span>
+                  <code>{a.connectorId}</code>
+                  {a.sourceId && <code className="muted">{a.sourceId}</code>}
+                  <code className="muted">rule: {a.ruleName}</code>
+                  <span className="alert-row-time">{formatTimeAgo(a.triggered)}</span>
+                </div>
+                <p className="alert-row-headline">
+                  <AlertTriangle size={14} /> {a.headline || '(no headline)'}
+                </p>
+                {description && (
+                  <p className="alert-row-desc">
+                    {description.slice(0, 280)}
+                    {description.length > 280 ? '…' : ''}
+                  </p>
+                )}
+                <div className="alert-row-tags">
+                  {Object.entries(a.tags ?? {}).slice(0, 6).map(([k, v]) => (
+                    <code key={k}>{k}={v}</code>
+                  ))}
+                </div>
+                {!a.acked && (
+                  <button className="alert-ack-btn" onClick={() => handleAck(a.id)}>
+                    <Check size={12} /> Acknowledge
+                  </button>
+                )}
+                {a.acked && (
+                  <span className="alert-acked-tag">acknowledged {formatTimeAgo(a.acked)}</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

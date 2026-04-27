@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sunny.dev/registry-schema.json",
+  "title": "Sunny Connector Registry",
+  "description": "Format for the public connector registry consumed by the Connectors marketplace UI. Each entry describes one publishable connector — first-party (in this repo) or third-party (external Go module). Hosting URL is decided per-deployment.",
+  "type": "object",
+  "required": ["version", "connectors"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Registry document schema version. Currently '1'."
+    },
+    "updated": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "connectors": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/RegistryEntry" }
+    }
+  },
+  "$defs": {
+    "RegistryEntry": {
+      "type": "object",
+      "required": ["id", "name", "category", "mode", "source"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "Globally-unique connector ID. Matches the SDK Manifest.ID."
+        },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "category": {
+          "type": "string",
+          "enum": [
+            "geophysical", "weather", "air_quality", "hydrology",
+            "wildfire", "structural", "iot", "industrial", "custom"
+          ]
+        },
+        "mode": { "type": "string", "enum": ["pull", "push", "stream"] },
+        "version": { "type": "string", "description": "semver" },
+        "source": {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "type": "string", "enum": ["builtin", "module", "rpc"] },
+            "module": {
+              "type": "string",
+              "description": "For type=module: Go import path (e.g. github.com/example/sunny-conn-foo)"
+            },
+            "endpoint": {
+              "type": "string",
+              "description": "For type=rpc: ws:// or http:// endpoint of an out-of-process connector"
+            }
+          }
+        },
+        "secrets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "envExample": { "type": "string" },
+              "obtainUrl": { "type": "string", "format": "uri" }
+            }
+          }
+        },
+        "configSchema": {
+          "description": "JSON Schema for the connector's config block (matches Manifest.ConfigSchema)."
+        },
+        "homepage": { "type": "string", "format": "uri" },
+        "license": { "type": "string", "description": "SPDX identifier" },
+        "maintainers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "verified": {
+          "type": "boolean",
+          "description": "True for first-party connectors and any third-party connectors a maintainer has reviewed."
+        }
+      }
+    }
+  }
+}

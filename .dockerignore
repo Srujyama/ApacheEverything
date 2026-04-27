@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+bin
+data
+.git
+.idea
+.vscode
+*.log
+*.duckdb
+*.duckdb.wal
+apps/web/dist
+apps/server/internal/web/dist
+.DS_Store

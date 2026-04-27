@@ -1,27 +1,40 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+import AuthGate from './components/AuthGate';
 import Layout from './components/layout/Layout';
-import Dashboard from './pages/Dashboard';
-import LiveMap from './pages/LiveMap';
-import DataStreams from './pages/DataStreams';
-import Alerts from './pages/Alerts';
-import Infrastructure from './pages/Infrastructure';
-import Analytics from './pages/Analytics';
-import DataSources from './pages/DataSources';
+
+// Lazy-load every page so the initial bundle stays small. Recharts and
+// react-leaflet are big and only needed once you visit those pages.
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const LiveMap = lazy(() => import('./pages/LiveMap'));
+const DataStreams = lazy(() => import('./pages/DataStreams'));
+const Alerts = lazy(() => import('./pages/Alerts'));
+const Connectors = lazy(() => import('./pages/Connectors'));
+
+function PageFallback() {
+  return <div className="page-loading">Loading…</div>;
+}
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/map" element={<LiveMap />} />
-          <Route path="/streams" element={<DataStreams />} />
-          <Route path="/alerts" element={<Alerts />} />
-          <Route path="/assets" element={<Infrastructure />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/settings" element={<DataSources />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <AuthGate>
+      <BrowserRouter>
+        <Suspense fallback={<PageFallback />}>
+          <Routes>
+            <Route element={<Layout />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/map" element={<LiveMap />} />
+              <Route path="/streams" element={<DataStreams />} />
+              <Route path="/alerts" element={<Alerts />} />
+              <Route path="/connectors" element={<Connectors />} />
+              {/* Old routes from the mock era — redirect rather than 404. */}
+              <Route path="/settings" element={<Navigate to="/connectors" replace />} />
+              <Route path="/assets" element={<Navigate to="/" replace />} />
+              <Route path="/analytics" element={<Navigate to="/streams" replace />} />
+            </Route>
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+    </AuthGate>
   );
 }

@@ -1,0 +1,148 @@
+# Continuous integration: run on every push and PR.
+# Validates that backend tests pass, the frontend builds, and the embedded
+# binary compiles. Mirrors what overnight smoke tests have been doing.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: |
+            apps/server/go.sum
+            packages/cli/go.sum
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
+      - name: go mod download
+        run: |
+          cd apps/server && go mod download
+
+      - name: go vet
+        working-directory: apps/server
+        run: go vet ./...
+
+      - name: go test
+        working-directory: apps/server
+        run: go test ./...
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile=false
+
+      - name: type-check web
+        run: pnpm --filter @sunny/web exec tsc --noEmit -p tsconfig.app.json
+
+      - name: build web
+        run: pnpm --filter @sunny/web build
+
+  full-bundle:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with: { version: 10 }
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with: { node-version: "20", cache: pnpm }
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with: { go-version: "1.25" }
+
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile=false
+
+      - name: build web
+        run: pnpm --filter @sunny/web build
+
+      - name: sync dist into server embed
+        run: |
+          rm -rf apps/server/internal/web/dist
+          mkdir -p apps/server/internal/web/dist
+          cp -R apps/web/dist/. apps/server/internal/web/dist/
+
+      - name: build sunny binary
+        working-directory: apps/server
+        run: |
+          CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" \
+            -o ../../bin/sunny ./cmd/sunny
+
+      - name: smoke test the bundled binary
+        env:
+          SUNNY_DATA_DIR: /tmp/sunny-ci-data
+        run: |
+          mkdir -p "$SUNNY_DATA_DIR"
+          ./bin/sunny &
+          PID=$!
+          # Wait for /api/health to come up.
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -fsS http://localhost:3000/api/health > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          curl -fsS http://localhost:3000/api/health
+          curl -fsS http://localhost:3000/api/version
+
+          # Connector registry should serve at least our 6 first-party connectors.
+          REG_COUNT=$(curl -fsS http://localhost:3000/api/connectors/registry | jq '.connectors | length')
+          if [ "$REG_COUNT" -lt 6 ]; then
+            echo "registry has $REG_COUNT connectors, expected ≥ 6" >&2
+            exit 1
+          fi
+
+          # Live runtime should report at least the hello + 3 default connectors.
+          TYPES=$(curl -fsS http://localhost:3000/api/connectors | jq '.types | length')
+          if [ "$TYPES" -lt 7 ]; then
+            echo "/api/connectors returned $TYPES types, expected ≥ 7" >&2
+            exit 1
+          fi
+
+          # Records-counts endpoint must be reachable (may be 0 on a fresh boot).
+          curl -fsS http://localhost:3000/api/records/counts > /dev/null
+
+          # SPA fallback: any unknown path returns the embedded index.html.
+          curl -fsS http://localhost:3000/some/spa/route | grep -q '<div id="root"' || {
+            echo "SPA fallback didn't return index.html" >&2
+            exit 1
+          }
+
+          kill $PID

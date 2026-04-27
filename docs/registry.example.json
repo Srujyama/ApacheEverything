@@ -1,0 +1,137 @@
+{
+  "version": "1",
+  "updated": "2026-04-26T00:00:00Z",
+  "connectors": [
+    {
+      "id": "usgs-earthquakes",
+      "name": "USGS Earthquakes",
+      "description": "Pulls earthquake events from USGS GeoJSON feeds. No auth needed.",
+      "category": "geophysical",
+      "mode": "pull",
+      "version": "0.1.0",
+      "source": { "type": "builtin" },
+      "homepage": "https://earthquake.usgs.gov/",
+      "license": "SSPL-1.0",
+      "verified": true
+    },
+    {
+      "id": "noaa-weather-alerts",
+      "name": "NOAA Weather Alerts",
+      "description": "Active alerts from the National Weather Service.",
+      "category": "weather",
+      "mode": "pull",
+      "version": "0.1.0",
+      "source": { "type": "builtin" },
+      "homepage": "https://api.weather.gov/",
+      "license": "SSPL-1.0",
+      "verified": true
+    },
+    {
+      "id": "usgs-water",
+      "name": "USGS Water Services",
+      "description": "Gauge readings from USGS NWIS IV (default: major US rivers).",
+      "category": "hydrology",
+      "mode": "pull",
+      "version": "0.1.0",
+      "source": { "type": "builtin" },
+      "homepage": "https://waterservices.usgs.gov/",
+      "license": "SSPL-1.0",
+      "verified": true
+    },
+    {
+      "id": "nasa-firms",
+      "name": "NASA FIRMS Active Fires",
+      "description": "Active-fire detections from VIIRS/MODIS (NRT).",
+      "category": "wildfire",
+      "mode": "pull",
+      "version": "0.1.0",
+      "source": { "type": "builtin" },
+      "secrets": [
+        {
+          "name": "nasa-firms-key",
+          "envExample": "SUNNY_SECRET_NASA_FIRMS_KEY",
+          "obtainUrl": "https://firms.modaps.eosdis.nasa.gov/api/"
+        }
+      ],
+      "homepage": "https://firms.modaps.eosdis.nasa.gov/",
+      "license": "SSPL-1.0",
+      "verified": true
+    },
+    {
+      "id": "openaq",
+      "name": "OpenAQ Air Quality",
+      "description": "Air-quality measurements from OpenAQ v3.",
+      "category": "air_quality",
+      "mode": "pull",
+      "version": "0.1.0",
+      "source": { "type": "builtin" },
+      "secrets": [
+        {
+          "name": "openaq-api-key",
+          "envExample": "SUNNY_SECRET_OPENAQ_API_KEY",
+          "obtainUrl": "https://api.openaq.org/"
+        }
+      ],
+      "homepage": "https://openaq.org/",
+      "license": "SSPL-1.0",
+      "verified": true
+    },
+    {
+      "id": "webhook",
+      "name": "Generic Webhook",
+      "description": "Receive records via POST to /api/ingest/<instance>/. Tags and location via X-Sunny-* headers.",
+      "category": "custom",
+      "mode": "push",
+      "version": "0.1.0",
+      "source": { "type": "builtin" },
+      "license": "SSPL-1.0",
+      "verified": true
+    },
+    {
+      "id": "mqtt",
+      "name": "MQTT",
+      "description": "Subscribe to one or more MQTT topics. Each message becomes a record. Reference implementation for stream-mode connectors.",
+      "category": "iot",
+      "mode": "stream",
+      "version": "0.1.0",
+      "source": { "type": "builtin" },
+      "secrets": [
+        {
+          "name": "mqtt-username",
+          "envExample": "SUNNY_SECRET_MQTT_USERNAME",
+          "description": "Optional broker username (alternative to inline config)."
+        },
+        {
+          "name": "mqtt-password",
+          "envExample": "SUNNY_SECRET_MQTT_PASSWORD",
+          "description": "Optional broker password."
+        }
+      ],
+      "license": "SSPL-1.0",
+      "verified": true
+    },
+    {
+      "id": "postgres",
+      "name": "Postgres LISTEN/NOTIFY",
+      "description": "Stream Postgres NOTIFY events into Sunny. Pair with triggers for change-data-capture flows.",
+      "category": "iot",
+      "mode": "stream",
+      "version": "0.1.0",
+      "source": { "type": "builtin" },
+      "secrets": [
+        {
+          "name": "postgres-username",
+          "envExample": "SUNNY_SECRET_POSTGRES_USERNAME",
+          "description": "Optional DB username; overrides the DSN's user."
+        },
+        {
+          "name": "postgres-password",
+          "envExample": "SUNNY_SECRET_POSTGRES_PASSWORD",
+          "description": "Optional DB password; overrides the DSN's password."
+        }
+      ],
+      "license": "SSPL-1.0",
+      "verified": true
+    }
+  ]
+}

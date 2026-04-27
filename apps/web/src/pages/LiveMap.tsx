@@ -1,287 +1,202 @@
-import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup, LayersControl } from 'react-leaflet';
-import { Layers, AlertTriangle, Radio as RadioIcon, Building2 } from 'lucide-react';
-import { fetchRecentEarthquakes, fetchSignificantEarthquakes } from '../services/publicDataSources';
-import { getSensors, getAssets } from '../services/sensorService';
-import { getCriticalAndEmergencyAlerts } from '../services/alertService';
-import type { MapMarker, Sensor, InfrastructureAsset } from '../types';
-import { severityColor, conditionColor } from '../utils/format';
+import { useEffect, useMemo, useState } from 'react';
+import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useLiveStream } from '../hooks/useLiveStream';
+import { getRecords, getConnectors } from '../api/sunny';
+import type { ConnectorsResponse, Record as SunnyRecord } from '../api/types';
+import { formatTimeAgo } from '../utils/format';
 import './LiveMap.css';
 
-export default function LiveMap() {
-  const [earthquakes, setEarthquakes] = useState<MapMarker[]>([]);
-  const [significantQuakes, setSignificantQuakes] = useState<MapMarker[]>([]);
-  const [showLayer, setShowLayer] = useState({
-    sensors: true,
-    assets: true,
-    earthquakes: true,
-    alerts: true,
-  });
+const SEVERITY_FILL: globalThis.Record<string, string> = {
+  emergency: '#dc2626',
+  critical: '#ef4444',
+  warning: '#f59e0b',
+  info: '#3b82f6',
+};
 
-  const sensors = getSensors();
-  const assets = getAssets();
-  const criticalAlerts = getCriticalAndEmergencyAlerts();
+function colorForRecord(r: SunnyRecord): string {
+  const sev = (r.tags?.severity ?? '').toLowerCase();
+  if (sev in SEVERITY_FILL) return SEVERITY_FILL[sev];
+  return '#10b981';
+}
+
+export default function LiveMap() {
+  const [historical, setHistorical] = useState<SunnyRecord[]>([]);
+  const [conns, setConns] = useState<ConnectorsResponse | null>(null);
+  const [enabledConns, setEnabledConns] = useState<Set<string>>(new Set());
+  const stream = useLiveStream({ bufferSize: 1000, replay: false });
 
   useEffect(() => {
-    fetchRecentEarthquakes().then(setEarthquakes);
-    fetchSignificantEarthquakes().then(setSignificantQuakes);
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const [c, rs] = await Promise.all([
+          getConnectors(),
+          getRecords({ limit: 1000 }),
+        ]);
+        if (cancelled) return;
+        setConns(c);
+        setHistorical(rs);
+        // First load: enable all connectors that produce locations.
+        if (enabledConns.size === 0) {
+          const has = new Set<string>();
+          for (const r of rs) if (r.location) has.add(r.connectorId);
+          setEnabledConns(has);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    load();
+    const id = window.setInterval(load, 30000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const allEarthquakes = [...significantQuakes, ...earthquakes];
+  const points = useMemo(() => {
+    const merged = [...stream.records, ...historical];
+    const seen = new Set<string>();
+    const out: SunnyRecord[] = [];
+    for (const r of merged) {
+      if (!r.location) continue;
+      if (!enabledConns.has(r.connectorId)) continue;
+      const key = `${r.connectorId}|${r.sourceId ?? ''}|${r.timestamp}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(r);
+      if (out.length >= 500) break; // keep map snappy
+    }
+    return out;
+  }, [stream.records, historical, enabledConns]);
 
-  function getSensorColor(sensor: Sensor): string {
-    if (sensor.status === 'offline') return '#ef4444';
-    if (sensor.status === 'degraded') return '#eab308';
-    return '#22c55e';
-  }
+  const togglable = useMemo(() => {
+    const has = new Set<string>();
+    for (const r of [...stream.records, ...historical]) {
+      if (r.location) has.add(r.connectorId);
+    }
+    return [...has];
+  }, [stream.records, historical]);
 
-  function getAssetColor(asset: InfrastructureAsset): string {
-    if (asset.riskScore >= 60) return '#ef4444';
-    if (asset.riskScore >= 40) return '#f97316';
-    if (asset.riskScore >= 20) return '#eab308';
-    return '#22c55e';
-  }
-
-  function getQuakeRadius(marker: MapMarker): number {
-    const mag = (marker.details.magnitude as number) || 1;
-    return Math.max(4, mag * 4);
-  }
+  const toggle = (id: string) => {
+    setEnabledConns((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   return (
-    <div className="live-map-page">
+    <div className="livemap-page">
       <div className="page-header">
         <div>
-          <h1>Live Infrastructure Map</h1>
+          <h1>Live Map</h1>
           <p className="page-subtitle">
-            Real-time geospatial view of sensors, assets, and events from USGS, NOAA, and NASA
+            Records with geographic coordinates plotted in real time. Toggle
+            individual connector instances on the right.
           </p>
         </div>
+        <div className="live-indicator">
+          <span className={`status-dot ${stream.connected ? 'online pulse-dot' : 'offline'}`} />
+          <span>{stream.connected ? 'live' : 'offline'}</span>
+        </div>
       </div>
 
-      <div className="map-controls">
-        <button
-          className={`map-layer-btn ${showLayer.sensors ? 'active' : ''}`}
-          onClick={() => setShowLayer(s => ({ ...s, sensors: !s.sensors }))}
-        >
-          <RadioIcon size={14} />
-          Sensors ({sensors.length})
-        </button>
-        <button
-          className={`map-layer-btn ${showLayer.assets ? 'active' : ''}`}
-          onClick={() => setShowLayer(s => ({ ...s, assets: !s.assets }))}
-        >
-          <Building2 size={14} />
-          Assets ({assets.length})
-        </button>
-        <button
-          className={`map-layer-btn ${showLayer.earthquakes ? 'active' : ''}`}
-          onClick={() => setShowLayer(s => ({ ...s, earthquakes: !s.earthquakes }))}
-        >
-          <Layers size={14} />
-          Earthquakes ({allEarthquakes.length})
-        </button>
-        <button
-          className={`map-layer-btn ${showLayer.alerts ? 'active' : ''}`}
-          onClick={() => setShowLayer(s => ({ ...s, alerts: !s.alerts }))}
-        >
-          <AlertTriangle size={14} />
-          Alerts ({criticalAlerts.filter(a => a.location).length})
-        </button>
-      </div>
+      <div className="livemap-grid">
+        <div className="livemap-canvas card">
+          <MapContainer
+            center={[39.8283, -98.5795]}
+            zoom={4}
+            scrollWheelZoom
+            style={{ width: '100%', height: '100%', borderRadius: 'var(--radius-md)' }}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            {points.map((r, i) => (
+              <CircleMarker
+                key={i}
+                center={[r.location!.lat, r.location!.lng]}
+                radius={5}
+                pathOptions={{
+                  color: colorForRecord(r),
+                  fillColor: colorForRecord(r),
+                  fillOpacity: 0.7,
+                  weight: 1,
+                }}
+              >
+                <Popup>
+                  <RecordPopup record={r} />
+                </Popup>
+              </CircleMarker>
+            ))}
+          </MapContainer>
+        </div>
 
-      <div className="map-container">
-        <MapContainer
-          center={[39.8283, -98.5795]}
-          zoom={4}
-          scrollWheelZoom={true}
-          style={{ height: '100%', width: '100%' }}
-        >
-          <LayersControl position="topright">
-            <LayersControl.BaseLayer checked name="Dark">
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
-                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-              />
-            </LayersControl.BaseLayer>
-            <LayersControl.BaseLayer name="Satellite">
-              <TileLayer
-                attribution='&copy; Esri'
-                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-              />
-            </LayersControl.BaseLayer>
-            <LayersControl.BaseLayer name="Terrain">
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-                url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
-              />
-            </LayersControl.BaseLayer>
-          </LayersControl>
-
-          {/* Sensors */}
-          {showLayer.sensors && sensors.map(sensor => (
-            <CircleMarker
-              key={sensor.id}
-              center={[sensor.location.lat, sensor.location.lng]}
-              radius={6}
-              fillColor={getSensorColor(sensor)}
-              color={getSensorColor(sensor)}
-              weight={2}
-              opacity={0.8}
-              fillOpacity={0.5}
-            >
-              <Popup>
-                <div className="map-popup">
-                  <h4>{sensor.name}</h4>
-                  <div className="map-popup-row">
-                    <span>Type:</span><span>{sensor.type}</span>
-                  </div>
-                  <div className="map-popup-row">
-                    <span>Status:</span>
-                    <span style={{ color: getSensorColor(sensor) }}>{sensor.status}</span>
-                  </div>
-                  <div className="map-popup-row">
-                    <span>Reading:</span><span>{sensor.lastReading} {sensor.unit}</span>
-                  </div>
-                </div>
-              </Popup>
-            </CircleMarker>
-          ))}
-
-          {/* Assets */}
-          {showLayer.assets && assets.map(asset => (
-            <CircleMarker
-              key={asset.id}
-              center={[asset.location.lat, asset.location.lng]}
-              radius={10}
-              fillColor={getAssetColor(asset)}
-              color={getAssetColor(asset)}
-              weight={2}
-              opacity={0.9}
-              fillOpacity={0.3}
-            >
-              <Popup>
-                <div className="map-popup">
-                  <h4>{asset.name}</h4>
-                  <div className="map-popup-row">
-                    <span>Category:</span><span>{asset.category}</span>
-                  </div>
-                  <div className="map-popup-row">
-                    <span>Condition:</span>
-                    <span style={{ color: conditionColor(asset.condition) }}>{asset.condition}</span>
-                  </div>
-                  <div className="map-popup-row">
-                    <span>Risk Score:</span>
-                    <span style={{ color: getAssetColor(asset) }}>{asset.riskScore}/100</span>
-                  </div>
-                  <div className="map-popup-row">
-                    <span>Sensors:</span><span>{asset.sensors.length}</span>
-                  </div>
-                </div>
-              </Popup>
-            </CircleMarker>
-          ))}
-
-          {/* Earthquakes from USGS */}
-          {showLayer.earthquakes && allEarthquakes.map(eq => (
-            <CircleMarker
-              key={eq.id}
-              center={[eq.position.lat, eq.position.lng]}
-              radius={getQuakeRadius(eq)}
-              fillColor={severityColor(eq.severity || 'info').replace('var(--severity-', '').replace(')', '')}
-              color="#ef4444"
-              weight={1}
-              opacity={0.7}
-              fillOpacity={0.4}
-            >
-              <Popup>
-                <div className="map-popup">
-                  <h4>{eq.label}</h4>
-                  <div className="map-popup-row">
-                    <span>Magnitude:</span><span>{eq.details.magnitude as number}</span>
-                  </div>
-                  <div className="map-popup-row">
-                    <span>Depth:</span><span>{(eq.details.depth_km as number)?.toFixed(1)} km</span>
-                  </div>
-                  {eq.details.time && (
-                    <div className="map-popup-row">
-                      <span>Time:</span><span>{new Date(eq.details.time as string).toLocaleString()}</span>
-                    </div>
-                  )}
-                  <div className="map-popup-row">
-                    <span>Source:</span><span>USGS Earthquake Hazards</span>
-                  </div>
-                </div>
-              </Popup>
-            </CircleMarker>
-          ))}
-
-          {/* Alert Locations */}
-          {showLayer.alerts && criticalAlerts.filter(a => a.location).map(alert => (
-            <CircleMarker
-              key={alert.id}
-              center={[alert.location!.lat, alert.location!.lng]}
-              radius={14}
-              fillColor={alert.severity === 'emergency' ? '#ef4444' : '#f97316'}
-              color={alert.severity === 'emergency' ? '#ef4444' : '#f97316'}
-              weight={3}
-              opacity={0.9}
-              fillOpacity={0.2}
-            >
-              <Popup>
-                <div className="map-popup">
-                  <h4>{alert.title}</h4>
-                  <div className="map-popup-row">
-                    <span>Severity:</span>
-                    <span style={{ color: alert.severity === 'emergency' ? '#ef4444' : '#f97316' }}>
-                      {alert.severity}
-                    </span>
-                  </div>
-                  <div className="map-popup-row">
-                    <span>Source:</span><span>{alert.source}</span>
-                  </div>
-                  <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>
-                    {alert.description.slice(0, 150)}...
-                  </p>
-                </div>
-              </Popup>
-            </CircleMarker>
-          ))}
-        </MapContainer>
-
-        {/* Map Legend */}
-        <div className="map-legend">
-          <h4>Legend</h4>
-          <div className="legend-item">
-            <span className="legend-dot" style={{ background: '#22c55e' }} />
-            <span>Sensor (Online)</span>
+        <div className="livemap-sidebar card">
+          <div className="card-header">
+            <h3>Layers</h3>
           </div>
-          <div className="legend-item">
-            <span className="legend-dot" style={{ background: '#eab308' }} />
-            <span>Sensor (Degraded)</span>
+          <div className="livemap-layers">
+            {togglable.length === 0 && (
+              <p className="empty-state">No location-bearing records yet.</p>
+            )}
+            {togglable.map((id) => {
+              const inst = conns?.instances.find((i) => i.instanceId === id);
+              const type = inst ? conns?.types.find((t) => t.id === inst.type) : null;
+              return (
+                <label key={id} className="livemap-layer">
+                  <input
+                    type="checkbox"
+                    checked={enabledConns.has(id)}
+                    onChange={() => toggle(id)}
+                  />
+                  <span>
+                    <strong>{id}</strong>
+                    <small>{type?.name ?? inst?.type}</small>
+                  </span>
+                </label>
+              );
+            })}
           </div>
-          <div className="legend-item">
-            <span className="legend-dot" style={{ background: '#ef4444' }} />
-            <span>Sensor (Offline)</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-ring" style={{ borderColor: '#22c55e' }} />
-            <span>Asset (Low Risk)</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-ring" style={{ borderColor: '#f97316' }} />
-            <span>Asset (Med Risk)</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-ring" style={{ borderColor: '#ef4444' }} />
-            <span>Asset (High Risk)</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-dot pulse" style={{ background: '#ef4444' }} />
-            <span>USGS Earthquake</span>
+          <div className="livemap-legend">
+            {Object.entries(SEVERITY_FILL).map(([k, v]) => (
+              <div key={k} className="livemap-legend-item">
+                <span className="dot" style={{ background: v }} />
+                <span>{k}</span>
+              </div>
+            ))}
+            <div className="livemap-legend-item">
+              <span className="dot" style={{ background: '#10b981' }} />
+              <span>(no severity)</span>
+            </div>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function RecordPopup({ record }: { record: SunnyRecord }) {
+  const payload = record.payload as globalThis.Record<string, unknown>;
+  const headline =
+    (payload?.headline as string) ||
+    (payload?.event as string) ||
+    (payload?.place as string) ||
+    (payload?.siteName as string) ||
+    record.connectorId;
+  return (
+    <div className="livemap-popup">
+      <strong>{headline}</strong>
+      <div className="livemap-popup-meta">
+        <code>{record.connectorId}</code>
+        <span>{formatTimeAgo(record.timestamp)}</span>
+      </div>
+      <pre>{JSON.stringify(payload, null, 2).slice(0, 500)}</pre>
     </div>
   );
 }

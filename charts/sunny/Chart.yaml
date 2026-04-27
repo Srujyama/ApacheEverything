@@ -1,0 +1,16 @@
+apiVersion: v2
+name: sunny
+description: Open-source, self-hosted observability for physical infrastructure.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - observability
+  - iot
+  - monitoring
+  - infrastructure
+home: https://github.com/sunny/sunny
+sources:
+  - https://github.com/sunny/sunny
+maintainers:
+  - name: Sunny Maintainers

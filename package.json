@@ -1,0 +1,16 @@
+{
+  "name": "sunny",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Open-source, self-hosted observability for physical infrastructure.",
+  "license": "SSPL-1.0",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:web": "pnpm --filter @sunny/web dev",
+    "build:web": "pnpm --filter @sunny/web build",
+    "lint:web": "pnpm --filter @sunny/web lint"
+  }
+}

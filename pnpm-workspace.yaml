@@ -1,0 +1,4 @@
+packages:
+  - "apps/web"
+  - "packages/sdk-ts"
+  - "packages/core"

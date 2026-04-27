@@ -1,0 +1,48 @@
+# Default values for sunny.
+image:
+  repository: ghcr.io/sunny/sunny
+  tag: "" # defaults to chart appVersion
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 3000
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  tls: []
+
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClass: ""
+  accessMode: ReadWriteOnce
+
+# Enable single-password auth by setting passwordHash to a bcrypt string.
+# Generate with: docker run --rm ghcr.io/sunny/sunny:latest sunny-cli hash-password 'yourpw'
+auth:
+  passwordHash: ""
+  # Optional explicit session key (32+ random bytes). Random if empty —
+  # cookies won't survive pod restarts unless you set this.
+  sessionKey: ""
+
+# Connector secrets. Both connectors idle gracefully without their key.
+secrets:
+  nasaFirmsKey: ""
+  openaqApiKey: ""
+
+# Pod-level resources. The default install on a single VPS is fine with this.
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

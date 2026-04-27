@@ -4,13 +4,12 @@ import {
   Map,
   Radio,
   AlertTriangle,
-  Building2,
-  TrendingUp,
-  Settings,
-  Activity,
+  Plug,
   Eye,
-  Zap,
+  Activity,
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { getConnectorInstances, getHealth } from '../../api/sunny';
 import './Sidebar.css';
 
 const NAV_ITEMS = [
@@ -18,12 +17,33 @@ const NAV_ITEMS = [
   { to: '/map', icon: Map, label: 'Live Map' },
   { to: '/streams', icon: Radio, label: 'Data Streams' },
   { to: '/alerts', icon: AlertTriangle, label: 'Alerts' },
-  { to: '/assets', icon: Building2, label: 'Infrastructure' },
-  { to: '/analytics', icon: TrendingUp, label: 'Analytics' },
-  { to: '/settings', icon: Settings, label: 'Data Sources' },
+  { to: '/connectors', icon: Plug, label: 'Connectors' },
 ];
 
 export default function Sidebar() {
+  const [running, setRunning] = useState<number | null>(null);
+  const [healthy, setHealthy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const [insts, h] = await Promise.all([getConnectorInstances(), getHealth()]);
+        if (cancelled) return;
+        setRunning(insts.filter((i) => i.state === 'running').length);
+        setHealthy(h.status === 'ok');
+      } catch {
+        if (!cancelled) setHealthy(false);
+      }
+    };
+    tick();
+    const id = window.setInterval(tick, 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
+
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
@@ -38,12 +58,8 @@ export default function Sidebar() {
 
       <div className="sidebar-status">
         <div className="status-indicator">
-          <Activity size={14} className="pulse" />
-          <span>Platform Active</span>
-        </div>
-        <div className="pipeline-badge">
-          <Zap size={12} />
-          <span>Kafka + Spark</span>
+          <Activity size={14} className={healthy ? 'pulse' : ''} />
+          <span>{healthy ? 'Server healthy' : 'Server unreachable'}</span>
         </div>
       </div>
 
@@ -65,12 +81,8 @@ export default function Sidebar() {
 
       <div className="sidebar-footer">
         <div className="sidebar-footer-item">
-          <span className="status-dot online pulse-dot" />
-          <span>8 data sources connected</span>
-        </div>
-        <div className="sidebar-footer-item">
-          <span className="status-dot online" />
-          <span>24 sensors active</span>
+          <span className={`status-dot ${healthy ? 'online pulse-dot' : 'offline'}`} />
+          <span>{running ?? '…'} connectors running</span>
         </div>
       </div>
     </aside>

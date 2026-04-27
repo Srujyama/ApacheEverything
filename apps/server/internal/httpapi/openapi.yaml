@@ -1,0 +1,633 @@
+openapi: 3.1.0
+info:
+  title: Sunny API
+  version: 0.1.0
+  summary: Open-source self-hosted observability for physical infrastructure.
+  description: |
+    Sunny exposes a small, stable HTTP API for managing connectors, querying
+    records, configuring alerts, and exporting data. The same Go server also
+    serves the React SPA from the same origin.
+
+    See [docs/semver.md](./semver.md) for what's stable across versions and
+    [docs/connectors/tutorial.md](./connectors/tutorial.md) for adding a
+    connector.
+  license:
+    name: SSPL-1.0
+    url: https://www.mongodb.com/licensing/server-side-public-license
+
+servers:
+  - url: http://localhost:3000
+    description: Local self-host
+  - url: https://{host}
+    description: Reverse-proxied deployment
+    variables:
+      host:
+        default: sunny.example.com
+
+security:
+  - cookieAuth: []
+  - bearerAuth: []
+  - {} # endpoints under /api/health, /api/version, /api/auth/*, /healthz, /readyz are public
+
+tags:
+  - name: System
+    description: Health, version, auth.
+  - name: Connectors
+    description: Plugin registry and running instances.
+  - name: Records
+    description: Persisted observations.
+  - name: Timeseries
+    description: Server-aggregated metrics.
+  - name: Alerts
+    description: Rule engine + triggered alerts.
+  - name: Export
+    description: CSV / Parquet export.
+  - name: Query
+    description: Read-only SQL.
+  - name: Backup
+    description: Online data-dir snapshot.
+  - name: Ingest
+    description: Push-mode connector receivers.
+
+paths:
+  /healthz:
+    get:
+      tags: [System]
+      summary: Kubernetes liveness probe
+      security: []
+      responses:
+        "200":
+          description: Always 200 if the binary is alive.
+          content:
+            text/plain:
+              schema: { type: string, example: ok }
+
+  /readyz:
+    get:
+      tags: [System]
+      summary: Kubernetes readiness probe
+      security: []
+      responses:
+        "200": { description: Storage is reachable, no instance is failed. }
+        "503": { description: Storage unreachable or an instance has failed. }
+
+  /api/health:
+    get:
+      tags: [System]
+      summary: Application liveness with timestamp
+      security: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  time:   { type: string, format: date-time }
+
+  /api/version:
+    get:
+      tags: [System]
+      summary: Server version
+      security: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version: { type: string, example: 0.1.0 }
+                  phase:   { type: string, example: v0.1 }
+
+  /api/auth/status:
+    get:
+      tags: [System]
+      summary: Auth state for this caller
+      security: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled:         { type: boolean }
+                  passwordEnabled: { type: boolean }
+                  loggedIn:        { type: boolean }
+
+  /api/auth/login:
+    post:
+      tags: [System]
+      summary: Password login → session cookie
+      description: |
+        Cross-origin POSTs are rejected (403). API tools that don't send an
+        `Origin` header are accepted; use a Bearer token instead for
+        scripted calls.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string }
+      responses:
+        "200":
+          description: Logged in; sets `sunny_session` cookie.
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+        "204": { description: Password auth not enabled — no-op. }
+        "401": { description: Wrong password. }
+        "403": { description: Cross-origin POST rejected. }
+
+  /api/auth/logout:
+    post:
+      tags: [System]
+      summary: Clears the session cookie
+      security: []
+      responses:
+        "204": { description: Cookie cleared. }
+
+  /api/connectors:
+    get:
+      tags: [Connectors]
+      summary: List registered connector types AND running instances
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  types:
+                    type: array
+                    items: { $ref: "#/components/schemas/Manifest" }
+                  instances:
+                    type: array
+                    items: { $ref: "#/components/schemas/InstanceStatus" }
+
+  /api/connectors/instances:
+    get:
+      tags: [Connectors]
+      summary: Lighter — just running instances
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/InstanceStatus" }
+
+  /api/connectors/registry:
+    get:
+      tags: [Connectors]
+      summary: Bundled connector marketplace document
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:    { type: string }
+                  updated:    { type: string, format: date-time }
+                  connectors:
+                    type: array
+                    items: { $ref: "#/components/schemas/RegistryEntry" }
+
+  /api/connectors/{id}:
+    get:
+      tags: [Connectors]
+      summary: One running instance status
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InstanceStatus" }
+        "404": { description: Instance not running. }
+
+  /api/connectors/{id}/metrics:
+    get:
+      tags: [Connectors]
+      summary: Per-instance metrics
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InstanceMetrics" }
+
+  /api/records:
+    get:
+      tags: [Records]
+      summary: Query persisted records
+      parameters:
+        - in: query
+          name: connector
+          schema: { type: string }
+        - in: query
+          name: from
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          schema: { type: string, format: date-time }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 100, maximum: 10000 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Record" }
+
+  /api/records/counts:
+    get:
+      tags: [Records]
+      summary: Record count grouped by connector
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: { type: integer }
+
+  /api/timeseries:
+    get:
+      tags: [Timeseries]
+      summary: Bucketed record counts
+      parameters:
+        - in: query
+          name: connector
+          schema: { type: string }
+        - in: query
+          name: from
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          schema: { type: string, format: date-time }
+        - in: query
+          name: bucket
+          description: Bucket width in seconds.
+          schema: { type: integer, default: 60 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TimeseriesBucket" }
+
+  /api/alerts:
+    get:
+      tags: [Alerts]
+      summary: List triggered alerts (newest first)
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, default: 100, maximum: 1000 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Alert" }
+
+  /api/alerts/{id}/ack:
+    post:
+      tags: [Alerts]
+      summary: Acknowledge an alert
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Acked. }
+
+  /api/alerts/rules:
+    get:
+      tags: [Alerts]
+      summary: List alert rules
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AlertRule" }
+    post:
+      tags: [Alerts]
+      summary: Create or upsert a rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AlertRule" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AlertRule" }
+
+  /api/alerts/rules/{id}:
+    delete:
+      tags: [Alerts]
+      summary: Delete a rule
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "204": { description: Deleted. }
+
+  /api/query:
+    post:
+      tags: [Query]
+      summary: Read-only SQL against the events table
+      description: |
+        SELECT and WITH only. Multi-statement, DDL, DML, COPY, PRAGMA, and
+        a few other keywords are rejected by an allowlist. Hard cap of
+        10 000 rows. Rate-limited per IP (default 10 rpm).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sql]
+              properties:
+                sql:    { type: string, example: "SELECT connector_id, COUNT(*) FROM events GROUP BY connector_id" }
+                params: { type: array, items: {} }
+                limit:  { type: integer }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QueryResult" }
+        "400": { description: Allowlist or syntax violation. }
+        "429": { description: Rate limit exceeded. Retry-After header is set. }
+
+  /api/export:
+    get:
+      tags: [Export]
+      summary: Export records as CSV or Parquet
+      description: |
+        CSV streams directly. Parquet buffers to a tempfile (Parquet has a
+        footer and is not streamable). Rate-limited per IP (default 10 rpm).
+      parameters:
+        - in: query
+          name: format
+          schema: { type: string, enum: [csv, parquet], default: csv }
+        - in: query
+          name: connector
+          schema: { type: string }
+        - in: query
+          name: from
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          schema: { type: string, format: date-time }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 100000, maximum: 1000000 }
+      responses:
+        "200":
+          description: Streaming export.
+          content:
+            text/csv:                   { schema: { type: string, format: binary } }
+            application/octet-stream:   { schema: { type: string, format: binary } }
+        "400": { description: Bad format or query. }
+        "429": { description: Rate limit. }
+
+  /api/backup:
+    get:
+      tags: [Backup]
+      summary: Stream a tarball of the data directory
+      description: Auth-required. Tighter rate limit (2 rpm). Skips DuckDB WAL files.
+      responses:
+        "200":
+          description: gzipped tar of the data dir.
+          content:
+            application/gzip:
+              schema: { type: string, format: binary }
+
+  /api/stream:
+    get:
+      tags: [Records]
+      summary: WebSocket — live record tail
+      description: |
+        Upgrades to WebSocket. Server pushes JSON-encoded `Record` objects as
+        they are published on the bus. Optional `connector` query param filters
+        server-side. Optional `replay=1` replays the recent ring buffer first.
+      parameters:
+        - in: query
+          name: connector
+          schema: { type: string }
+        - in: query
+          name: replay
+          schema: { type: string, enum: ["1"] }
+      responses:
+        "101": { description: Switching to WebSocket. }
+
+  /api/ingest/{instanceId}:
+    post:
+      tags: [Ingest]
+      summary: Push records to a push-mode connector instance
+      description: |
+        Auth-bypassed (browser cookies don't reach webhook callers).
+        Each push connector enforces its own auth (e.g. `webhook` checks
+        `X-Sunny-Token`). The body is captured as the record payload.
+      parameters:
+        - in: path
+          name: instanceId
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          "*/*":
+            schema: { type: string, format: binary }
+      responses:
+        "202": { description: Record accepted. }
+        "401": { description: Connector token check failed. }
+        "404": { description: No push connector with that id. }
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sunny_session
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+  schemas:
+    Manifest:
+      type: object
+      required: [id, name, version, mode, category]
+      properties:
+        id:           { type: string }
+        name:         { type: string }
+        version:      { type: string }
+        category:
+          type: string
+          enum: [geophysical, weather, air_quality, hydrology, wildfire, structural, iot, industrial, custom]
+        mode:
+          type: string
+          enum: [pull, push, stream]
+        description:  { type: string }
+        configSchema: {}
+
+    InstanceStatus:
+      type: object
+      required: [instanceId, type, state, startedAt]
+      properties:
+        instanceId: { type: string }
+        type:       { type: string }
+        state:
+          type: string
+          enum: [starting, running, backoff, stopped, failed]
+        startedAt:   { type: string, format: date-time }
+        restarts:    { type: integer }
+        lastError:   { type: string }
+        lastErrorAt: { type: string, format: date-time }
+
+    InstanceMetrics:
+      type: object
+      properties:
+        instanceId:        { type: string }
+        state:             { type: string }
+        restarts:          { type: integer }
+        startedAt:         { type: string, format: date-time }
+        lastError:         { type: string }
+        lastErrorAt:       { type: string, format: date-time }
+        totalRecords:      { type: integer }
+        lastRecordAt:      { type: string, format: date-time }
+        ratePerMinLastHour: { type: number }
+        ratePerMinLast24h:  { type: number }
+
+    GeoPoint:
+      type: object
+      properties:
+        lat:      { type: number }
+        lng:      { type: number }
+        altitude: { type: number, description: "Meters; sometimes negative for depths." }
+
+    Record:
+      type: object
+      required: [timestamp, connectorId]
+      properties:
+        timestamp:   { type: string, format: date-time }
+        connectorId: { type: string }
+        sourceId:    { type: string }
+        location:    { $ref: "#/components/schemas/GeoPoint" }
+        tags:
+          type: object
+          additionalProperties: { type: string }
+        payload: {}
+
+    TimeseriesBucket:
+      type: object
+      required: [bucket, count]
+      properties:
+        bucket: { type: string, format: date-time }
+        count:  { type: integer }
+
+    AlertRule:
+      type: object
+      required: [name]
+      properties:
+        id:          { type: string }
+        name:        { type: string }
+        enabled:     { type: boolean }
+        connectorId: { type: string }
+        severityIn:
+          type: array
+          items: { type: string }
+        tagEquals:
+          type: object
+          additionalProperties: { type: string }
+        createdAt:   { type: string, format: date-time }
+
+    Alert:
+      type: object
+      required: [id, ruleId, ruleName, connectorId, triggered]
+      properties:
+        id:          { type: string }
+        ruleId:      { type: string }
+        ruleName:    { type: string }
+        connectorId: { type: string }
+        sourceId:    { type: string }
+        severity:    { type: string }
+        headline:    { type: string }
+        tags:
+          type: object
+          additionalProperties: { type: string }
+        payload:     {}
+        triggered:   { type: string, format: date-time }
+        acked:       { type: string, format: date-time }
+
+    QueryResult:
+      type: object
+      required: [columns, rowCount]
+      properties:
+        columns:
+          type: array
+          items: { type: string }
+        types:
+          type: array
+          items: { type: string }
+        rows:
+          type: array
+          items:
+            type: array
+            items: {}
+        rowCount: { type: integer }
+
+    RegistryEntry:
+      type: object
+      required: [id, name, mode, category, source]
+      properties:
+        id:           { type: string }
+        name:         { type: string }
+        description:  { type: string }
+        category:     { type: string }
+        mode:         { type: string }
+        version:      { type: string }
+        source:
+          type: object
+          properties:
+            type:     { type: string, enum: [builtin, module, rpc] }
+            module:   { type: string }
+            endpoint: { type: string }
+        secrets:
+          type: array
+          items:
+            type: object
+            properties:
+              name:        { type: string }
+              description: { type: string }
+              envExample:  { type: string }
+              obtainUrl:   { type: string }
+        homepage:    { type: string }
+        license:     { type: string }
+        verified:    { type: boolean }

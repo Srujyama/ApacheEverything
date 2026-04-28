@@ -1,100 +1,111 @@
 /* ============================================================================
-   Physical Observability Platform - Global Design System
-   Dark-first observability theme with severity-aware color palette
+   Sunny — Design System
+   Palantir-Foundry-style: monochrome, dense, single warm accent, hairline
+   borders, sharp corners, tabular numerics. No glows, no gradients, no
+   round chips. Information density over decoration.
    ============================================================================ */
 
 :root {
-  /* --- Core Palette (Dark theme - primary) --- */
-  --bg-primary: #0a0e17;
-  --bg-secondary: #111827;
-  --bg-tertiary: #1a2035;
-  --bg-card: #151c2e;
-  --bg-card-hover: #1c2540;
-  --bg-elevated: #1e2742;
-  --bg-input: #0d1220;
-  --bg-sidebar: #0c1021;
+  /* --- Surfaces ------------------------------------------------------------ */
+  /* Almost-black backgrounds with very small steps between layers, so the UI
+     reads as one continuous workspace rather than stacked cards. */
+  --bg-primary:    #0d0e10;   /* page background */
+  --bg-secondary:  #121316;   /* topbar, footers */
+  --bg-tertiary:   #161719;   /* nested panels */
+  --bg-card:       #131418;   /* default panel */
+  --bg-card-hover: #181a1e;
+  --bg-elevated:   #1b1d21;   /* tooltips, modals, popovers */
+  --bg-input:      #0f1013;
+  --bg-sidebar:    #0a0b0d;
 
-  /* --- Text --- */
-  --text-primary: #e2e8f0;
-  --text-secondary: #94a3b8;
-  --text-tertiary: #64748b;
-  --text-heading: #f1f5f9;
-  --text-inverse: #0a0e17;
+  /* --- Text --------------------------------------------------------------- */
+  --text-heading:    #f5f5f6;
+  --text-primary:    #d4d6da;
+  --text-secondary:  #8b8e94;
+  --text-tertiary:   #5e6168;
+  --text-quaternary: #3f4248;
+  --text-inverse:    #0d0e10;
 
-  /* --- Borders --- */
-  --border-primary: #1e293b;
-  --border-secondary: #334155;
-  --border-accent: rgba(56, 189, 248, 0.2);
+  /* --- Borders ------------------------------------------------------------ */
+  --border-primary:   #1f2125;     /* default panel border */
+  --border-secondary: #2a2c31;     /* hover / focus */
+  --border-tertiary:  #3a3c42;     /* divider on darker bg */
+  --border-accent:    rgba(230, 162, 60, 0.30);
 
-  /* --- Accent (Cyan/Blue - observability standard) --- */
-  --accent: #38bdf8;
-  --accent-hover: #7dd3fc;
-  --accent-bg: rgba(56, 189, 248, 0.1);
-  --accent-border: rgba(56, 189, 248, 0.3);
-  --accent-glow: 0 0 20px rgba(56, 189, 248, 0.15);
+  /* --- Accent (single warm amber, used sparingly) ------------------------- */
+  --accent:           #e6a23c;     /* the only saturated color */
+  --accent-hover:     #f0b558;
+  --accent-bg:        rgba(230, 162, 60, 0.10);
+  --accent-border:    rgba(230, 162, 60, 0.35);
+  --accent-glow:      none;
 
-  /* --- Severity Colors --- */
-  --severity-emergency: #ef4444;
-  --severity-emergency-bg: rgba(239, 68, 68, 0.1);
-  --severity-emergency-border: rgba(239, 68, 68, 0.3);
+  /* --- Severity (muted; saturation only on the dot/text, not full backgrounds) */
+  --severity-emergency:        #d04545;
+  --severity-emergency-bg:     rgba(208, 69, 69, 0.10);
+  --severity-emergency-border: rgba(208, 69, 69, 0.30);
 
-  --severity-critical: #f97316;
-  --severity-critical-bg: rgba(249, 115, 22, 0.1);
-  --severity-critical-border: rgba(249, 115, 22, 0.3);
+  --severity-critical:         #d97a3c;
+  --severity-critical-bg:      rgba(217, 122, 60, 0.10);
+  --severity-critical-border:  rgba(217, 122, 60, 0.30);
 
-  --severity-warning: #eab308;
-  --severity-warning-bg: rgba(234, 179, 8, 0.1);
-  --severity-warning-border: rgba(234, 179, 8, 0.3);
+  --severity-warning:          #c9a23a;
+  --severity-warning-bg:       rgba(201, 162, 58, 0.10);
+  --severity-warning-border:   rgba(201, 162, 58, 0.30);
 
-  --severity-info: #3b82f6;
-  --severity-info-bg: rgba(59, 130, 246, 0.1);
-  --severity-info-border: rgba(59, 130, 246, 0.3);
+  --severity-info:             #5b8fc4;
+  --severity-info-bg:          rgba(91, 143, 196, 0.10);
+  --severity-info-border:      rgba(91, 143, 196, 0.30);
 
-  /* --- Status Colors --- */
-  --status-optimal: #10b981;
-  --status-good: #22c55e;
-  --status-fair: #eab308;
-  --status-online: #22c55e;
-  --status-offline: #ef4444;
+  /* --- Status ------------------------------------------------------------- */
+  --status-optimal: #5fa56a;
+  --status-good:    #5fa56a;
+  --status-fair:    #c9a23a;
+  --status-online:  #5fa56a;
+  --status-offline: #d04545;
 
-  /* --- Kafka/Spark Brand --- */
-  --kafka-color: #231f20;
-  --kafka-accent: #e8602c;
-  --spark-color: #e25a1c;
-  --spark-accent: #f59e0b;
+  /* Legacy/alias variables some pages still reference. */
+  --kafka-color:  #16181c;
+  --kafka-accent: var(--accent);
+  --spark-color:  #16181c;
+  --spark-accent: var(--accent);
 
-  /* --- Chart Colors --- */
-  --chart-1: #38bdf8;
-  --chart-2: #a78bfa;
-  --chart-3: #34d399;
-  --chart-4: #fb923c;
-  --chart-5: #f472b6;
-  --chart-6: #60a5fa;
+  /* --- Charts (monochrome → amber gradient) ------------------------------ */
+  --chart-1: #e6a23c;
+  --chart-2: #b07e2e;
+  --chart-3: #7d8389;
+  --chart-4: #5b8fc4;
+  --chart-5: #5fa56a;
+  --chart-6: #d04545;
 
-  /* --- Typography --- */
-  --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, 'Cascadia Code', Consolas, monospace;
+  /* --- Typography -------------------------------------------------------- */
+  --sans:    'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono:    'JetBrains Mono', 'IBM Plex Mono', ui-monospace, Consolas, monospace;
   --heading: var(--sans);
 
-  /* --- Sizing --- */
-  --sidebar-width: 260px;
-  --header-height: 56px;
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  /* --- Sizing ------------------------------------------------------------ */
+  --sidebar-width: 56px;       /* icon-only rail */
+  --sidebar-width-expanded: 200px;
+  --topbar-height: 44px;       /* tighter than before */
+  --header-height: 44px;       /* alias */
 
-  /* --- Shadows --- */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
-  --shadow-glow: 0 0 30px rgba(56, 189, 248, 0.1);
+  --radius-sm: 2px;            /* nearly square */
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
 
-  /* --- Transitions --- */
-  --transition-fast: 150ms ease;
-  --transition-normal: 250ms ease;
+  /* --- Shadows (used very sparingly: modals, dropdowns) ------------------ */
+  --shadow-sm:   0 1px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md:   0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-lg:   0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-glow: none;
 
-  font: 14px/1.5 var(--sans);
+  /* --- Motion ------------------------------------------------------------ */
+  --transition-fast:   100ms ease-out;
+  --transition-normal: 160ms ease-out;
+
+  /* --- Base typography (smaller, denser) --------------------------------- */
+  font: 12px/1.45 var(--sans);
+  font-feature-settings: "tnum" 1, "ss01" 1, "cv11" 1;
   color-scheme: dark;
   color: var(--text-primary);
   background: var(--bg-primary);
@@ -104,15 +115,10 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* --- Reset --- */
-*, *::before, *::after {
-  box-sizing: border-box;
-}
+/* --- Reset --------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
 
-body {
-  margin: 0;
-  overflow: hidden;
-}
+body { margin: 0; overflow: hidden; }
 
 #root {
   width: 100vw;
@@ -121,187 +127,285 @@ body {
   overflow: hidden;
 }
 
-/* --- Typography --- */
+/* --- Typography --------------------------------------------------------- */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--heading);
   color: var(--text-heading);
   margin: 0;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-weight: 500;        /* not bold; Foundry uses 500/600 */
+  letter-spacing: -0.01em;
 }
 
-h1 { font-size: 28px; line-height: 1.2; }
-h2 { font-size: 22px; line-height: 1.3; }
-h3 { font-size: 17px; line-height: 1.4; }
-h4 { font-size: 14px; line-height: 1.4; }
+h1 { font-size: 18px; line-height: 1.25; font-weight: 600; }
+h2 { font-size: 15px; line-height: 1.3;  }
+h3 { font-size: 12px; line-height: 1.3;
+     text-transform: uppercase;
+     letter-spacing: 0.08em;
+     color: var(--text-tertiary);
+     font-weight: 500; }
+h4 { font-size: 12px; line-height: 1.3;  font-weight: 500; }
 
 p { margin: 0; }
 
 a {
   color: var(--accent);
   text-decoration: none;
-  &:hover { color: var(--accent-hover); }
+}
+a:hover { color: var(--accent-hover); text-decoration: underline; }
+
+/* tabular figures everywhere — every number column lines up vertically */
+.metric-card-value, .pipeline-stat-value, .schema-table td, code, pre, table, input, button {
+  font-variant-numeric: tabular-nums;
 }
 
 code {
   font-family: var(--mono);
-  font-size: 12px;
-  padding: 2px 6px;
+  font-size: 11px;
+  padding: 1px 4px;
   background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
   border-radius: var(--radius-sm);
-  color: var(--accent);
+  color: var(--text-primary);
 }
 
-/* --- Scrollbar --- */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+pre {
+  font-family: var(--mono);
+  font-size: 11px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin: 0;
+  overflow-x: auto;
+  color: var(--text-primary);
 }
-::-webkit-scrollbar-track {
+
+/* --- Form controls ----------------------------------------------------- */
+input, button, select, textarea {
+  font: inherit;
+  color: inherit;
+}
+button {
   background: transparent;
+  border: 1px solid var(--border-secondary);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
 }
-::-webkit-scrollbar-thumb {
-  background: var(--border-secondary);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--text-tertiary);
-}
+button:hover { border-color: var(--accent-border); }
 
-/* --- Utility Classes --- */
+/* --- Scrollbar (thin, monochrome, fades on hover) --------------------- */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-tertiary);
+  border-radius: 0;     /* sharp */
+  border: 2px solid var(--bg-primary); /* gives it inset look */
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-quaternary); }
+
+/* --- Panels ----------------------------------------------------------- */
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border-primary);
-  border-radius: var(--radius-lg);
-  padding: 20px;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  transition: border-color var(--transition-fast);
 }
-.card:hover {
-  border-color: var(--border-secondary);
-  box-shadow: var(--shadow-md);
+.card:hover { border-color: var(--border-secondary); }
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border-primary);
+}
+.card-header h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
+/* --- Badges (square, monochrome by default; severity in muted colors) - */
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  color: var(--text-secondary);
+  font-family: var(--mono);
 }
-.badge-emergency {
-  background: var(--severity-emergency-bg);
-  color: var(--severity-emergency);
-  border: 1px solid var(--severity-emergency-border);
-}
-.badge-critical {
-  background: var(--severity-critical-bg);
-  color: var(--severity-critical);
-  border: 1px solid var(--severity-critical-border);
-}
-.badge-warning {
-  background: var(--severity-warning-bg);
-  color: var(--severity-warning);
-  border: 1px solid var(--severity-warning-border);
-}
-.badge-info {
-  background: var(--severity-info-bg);
-  color: var(--severity-info);
-  border: 1px solid var(--severity-info-border);
-}
-.badge-success {
-  background: rgba(34, 197, 94, 0.1);
-  color: var(--status-good);
-  border: 1px solid rgba(34, 197, 94, 0.3);
-}
+.badge-emergency { color: var(--severity-emergency); border-color: var(--severity-emergency-border); background: var(--severity-emergency-bg); }
+.badge-critical  { color: var(--severity-critical);  border-color: var(--severity-critical-border);  background: var(--severity-critical-bg); }
+.badge-warning   { color: var(--severity-warning);   border-color: var(--severity-warning-border);   background: var(--severity-warning-bg); }
+.badge-info      { color: var(--severity-info);      border-color: var(--severity-info-border);      background: var(--severity-info-bg); }
+.badge-success   { color: var(--status-good);        border-color: rgba(95, 165, 106, 0.30);          background: rgba(95, 165, 106, 0.10); }
+.badge-danger    { color: var(--severity-emergency); border-color: var(--severity-emergency-border); background: var(--severity-emergency-bg); }
 
+/* --- Status dot (no glow; just a 6px LED) ------------------------------ */
 .status-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   display: inline-block;
   flex-shrink: 0;
-}
-.status-dot.online, .status-dot.active, .status-dot.connected, .status-dot.running {
-  background: var(--status-good);
-  box-shadow: 0 0 6px var(--status-good);
-}
-.status-dot.degraded, .status-dot.rate_limited {
-  background: var(--severity-warning);
-  box-shadow: 0 0 6px var(--severity-warning);
-}
-.status-dot.offline, .status-dot.disconnected, .status-dot.error, .status-dot.failed {
-  background: var(--severity-critical);
-  box-shadow: 0 0 6px var(--severity-critical);
-}
-.status-dot.maintenance, .status-dot.pending {
   background: var(--text-tertiary);
 }
-.status-dot.completed {
-  background: var(--accent);
-  box-shadow: 0 0 6px var(--accent);
-}
-
-/* --- Pulse animation for live indicators --- */
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-.pulse {
-  animation: pulse 2s ease-in-out infinite;
-}
+.status-dot.online,
+.status-dot.active,
+.status-dot.connected,
+.status-dot.running    { background: var(--status-good); }
+.status-dot.degraded,
+.status-dot.rate_limited{ background: var(--severity-warning); }
+.status-dot.offline,
+.status-dot.disconnected,
+.status-dot.error,
+.status-dot.failed     { background: var(--severity-emergency); }
+.status-dot.maintenance,
+.status-dot.pending    { background: var(--text-tertiary); }
+.status-dot.completed  { background: var(--accent); }
 
 @keyframes pulse-dot {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.5); opacity: 0.6; }
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
 }
-.pulse-dot {
-  animation: pulse-dot 2s ease-in-out infinite;
+.pulse-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+.pulse { animation: pulse 1.6s ease-in-out infinite; }
+
+/* --- Page header (single tight row) ----------------------------------- */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0 12px;
+  border-bottom: 1px solid var(--border-primary);
+  margin-bottom: 16px;
+}
+.page-header h1 { font-size: 16px; font-weight: 600; letter-spacing: -0.005em; }
+.page-subtitle {
+  display: none;   /* Foundry pages don't have subtitle paragraphs */
 }
 
-/* --- Leaflet overrides for dark theme --- */
-.leaflet-container {
-  background: var(--bg-primary) !important;
+.live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
 }
-.leaflet-tile-pane {
-  filter: brightness(0.7) contrast(1.1) saturate(0.8);
-}
+
+/* --- Leaflet (desaturated, dim, fits the monochrome theme) ----------- */
+.leaflet-container { background: var(--bg-primary) !important; }
+.leaflet-tile-pane { filter: brightness(0.55) contrast(1.05) saturate(0.5) hue-rotate(-10deg); }
 .leaflet-control-zoom a {
   background: var(--bg-card) !important;
   color: var(--text-primary) !important;
-  border-color: var(--border-primary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: var(--radius-sm) !important;
 }
 .leaflet-popup-content-wrapper {
-  background: var(--bg-card) !important;
+  background: var(--bg-elevated) !important;
   color: var(--text-primary) !important;
-  border-radius: var(--radius-md) !important;
+  border: 1px solid var(--border-secondary) !important;
+  border-radius: var(--radius-sm) !important;
   box-shadow: var(--shadow-lg) !important;
 }
-.leaflet-popup-tip {
-  background: var(--bg-card) !important;
+.leaflet-popup-tip { background: var(--bg-elevated) !important; }
+.leaflet-control-attribution {
+  background: var(--bg-secondary) !important;
+  color: var(--text-tertiary) !important;
+  font-size: 9px !important;
 }
+.leaflet-control-attribution a { color: var(--text-secondary) !important; }
 
-/* --- Progress bar --- */
+/* --- Progress bar ----------------------------------------------------- */
 .progress-bar {
   width: 100%;
-  height: 6px;
+  height: 4px;
   background: var(--bg-tertiary);
-  border-radius: 3px;
+  border-radius: 0;
   overflow: hidden;
 }
 .progress-bar-fill {
   height: 100%;
-  border-radius: 3px;
+  background: var(--accent);
+  border-radius: 0;
   transition: width var(--transition-normal);
 }
 
-/* Lazy-loaded page Suspense fallback */
+/* --- Tables (the Palantir signature) --------------------------------- */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.data-table thead th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.data-table tbody td {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border-primary);
+  color: var(--text-primary);
+}
+.data-table tbody tr:hover { background: var(--bg-card-hover); }
+.data-table tbody tr:last-child td { border-bottom: 0; }
+.data-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* --- Lazy-loaded fallback -------------------------------------------- */
 .page-loading {
   padding: 64px 16px;
   text-align: center;
   color: var(--text-tertiary);
-  font-size: 13px;
+  font-size: 12px;
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* --- Empty state ----------------------------------------------------- */
+.empty-state {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+/* --- Selection ------------------------------------------------------- */
+::selection {
+  background: var(--accent-bg);
+  color: var(--text-heading);
 }

@@ -1,122 +1,67 @@
+/* Narrow icon rail. Reveals labels on hover (CSS-only, no JS toggle). */
+
 .sidebar {
   width: var(--sidebar-width);
-  min-width: var(--sidebar-width);
-  height: 100vh;
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border-primary);
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  flex-shrink: 0;
+  height: 100%;
+  transition: width var(--transition-fast);
+  overflow: hidden;
   z-index: 100;
 }
-
-.sidebar-header {
-  padding: 20px 16px 12px;
-  border-bottom: 1px solid var(--border-primary);
-}
-
-.sidebar-logo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--accent);
-}
-
-.sidebar-logo-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.sidebar-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-heading);
-  letter-spacing: -0.02em;
-}
-
-.sidebar-subtitle {
-  font-size: 10px;
-  font-weight: 500;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.sidebar-status {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border-primary);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.status-indicator {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--status-good);
-  font-weight: 500;
-}
-
-.pipeline-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 10px;
-  background: var(--accent-bg);
-  border: 1px solid var(--accent-border);
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--accent);
-  width: fit-content;
+.sidebar:hover {
+  width: var(--sidebar-width-expanded);
 }
 
 .sidebar-nav {
-  flex: 1;
-  padding: 12px 8px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  padding: 6px 0;
+  gap: 1px;
 }
 
 .sidebar-link {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
+  gap: 12px;
+  height: 36px;
+  padding: 0 18px 0 19px;
   color: var(--text-secondary);
-  text-decoration: none;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
-  transition: all var(--transition-fast);
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+  position: relative;
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  transition: background var(--transition-fast),
+              color var(--transition-fast),
+              border-color var(--transition-fast);
 }
-
 .sidebar-link:hover {
   color: var(--text-primary);
-  background: var(--bg-tertiary);
+  background: var(--bg-card);
 }
-
 .sidebar-link-active {
-  color: var(--accent) !important;
-  background: var(--accent-bg) !important;
-  border: 1px solid var(--accent-border);
+  color: var(--text-heading);
+  background: var(--bg-card);
+  border-left-color: var(--accent);
 }
 
-.sidebar-footer {
-  padding: 16px;
-  border-top: 1px solid var(--border-primary);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+/* Hide labels until the rail expands. */
+.sidebar-link-label {
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+.sidebar:hover .sidebar-link-label {
+  opacity: 1;
 }
 
-.sidebar-footer-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  color: var(--text-tertiary);
+/* Mobile: full-width drawer (Layout.css positions it). */
+@media (max-width: 899px) {
+  .sidebar { width: var(--sidebar-width-expanded); }
+  .sidebar-link-label { opacity: 1; }
 }

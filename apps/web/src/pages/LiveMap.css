@@ -1,35 +1,39 @@
 .livemap-page {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  height: calc(100vh - 80px);
+  gap: 12px;
+  height: calc(100vh - var(--topbar-height) - 32px);
 }
 
 .livemap-grid {
   display: grid;
-  grid-template-columns: 1fr 280px;
-  gap: 16px;
+  grid-template-columns: 1fr 240px;
+  gap: 12px;
   flex: 1;
   min-height: 500px;
 }
 
 .livemap-canvas {
-  padding: 8px;
+  padding: 0;
   display: flex;
+  overflow: hidden;
+}
+.livemap-canvas .leaflet-container {
+  border-radius: var(--radius-sm);
 }
 
 .livemap-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-bottom: 12px;
+  gap: 0;
+  padding: 0;
 }
+.livemap-sidebar .card-header { margin-bottom: 0; padding: 12px 12px 10px; border-bottom: 1px solid var(--border-primary); }
 
 .livemap-layers {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 0 12px;
+  padding: 8px;
   max-height: 320px;
   overflow-y: auto;
 }
@@ -38,18 +42,41 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
-  background: var(--bg-elevated);
+  padding: 5px 6px;
+  background: transparent;
   border-radius: var(--radius-sm);
   cursor: pointer;
+  font-size: 11px;
 }
-.livemap-layer:hover {
-  background: var(--bg-card);
+.livemap-layer:hover { background: var(--bg-card-hover); }
+.livemap-layer input[type="checkbox"] {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  cursor: pointer;
+  position: relative;
+}
+.livemap-layer input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.livemap-layer input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  background: var(--text-inverse);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6 L5 9 L10 3' stroke='black' stroke-width='2' fill='none'/%3E%3C/svg%3E") center/contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6 L5 9 L10 3' stroke='black' stroke-width='2' fill='none'/%3E%3C/svg%3E") center/contain no-repeat;
 }
 .livemap-layer span {
   display: flex;
   flex-direction: column;
-  font-size: 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.2;
 }
 .livemap-layer small {
   color: var(--text-tertiary);
@@ -60,52 +87,66 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 12px;
+  padding: 10px 12px;
   border-top: 1px solid var(--border-primary);
-  font-size: 11px;
-  color: var(--text-secondary);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 .livemap-legend-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  text-transform: capitalize;
+  gap: 8px;
 }
 .livemap-legend-item .dot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
 }
 
+/* Leaflet popups (light bg inside dark map) */
 .livemap-popup {
+  font-size: 11px;
+  max-width: 300px;
+  color: var(--text-primary);
+}
+.livemap-popup strong {
   font-size: 12px;
-  max-width: 280px;
+  color: var(--text-heading);
+  display: block;
+  margin-bottom: 4px;
 }
 .livemap-popup pre {
+  font-family: var(--mono);
   font-size: 10px;
   margin: 6px 0 0 0;
-  background: #f5f5f7;
-  padding: 6px;
-  border-radius: 4px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
   max-height: 200px;
   overflow: auto;
+  color: var(--text-primary);
 }
 .livemap-popup-meta {
   display: flex;
   gap: 8px;
   align-items: center;
-  font-size: 11px;
+  font-family: var(--mono);
+  font-size: 10px;
   color: var(--text-tertiary);
   margin-top: 4px;
 }
 .livemap-popup-meta code {
-  background: #eef;
-  padding: 1px 5px;
-  border-radius: 4px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  color: var(--accent);
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
 }
 
 @media (max-width: 1100px) {
-  .livemap-grid {
-    grid-template-columns: 1fr;
-  }
+  .livemap-grid { grid-template-columns: 1fr; }
 }

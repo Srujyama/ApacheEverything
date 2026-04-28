@@ -44,16 +44,21 @@ export function ThroughputChart({ data }: { data: ThroughputDatum[] }) {
           contentStyle={{
             background: "var(--bg-elevated)",
             border: "1px solid var(--border-secondary)",
-            borderRadius: 8,
-            fontSize: 12,
+            borderRadius: 2,
+            fontSize: 11,
+            fontFamily: "var(--mono)",
+            padding: "6px 8px",
           }}
+          itemStyle={{ color: "var(--text-primary)" }}
+          labelStyle={{ color: "var(--text-tertiary)", fontSize: 10 }}
+          cursor={{ stroke: "var(--border-secondary)", strokeWidth: 1 }}
         />
         <Area
           type="monotone"
           dataKey="count"
-          stroke="var(--kafka-accent)"
+          stroke="var(--accent)"
           fill="url(#ingestGrad)"
-          strokeWidth={2}
+          strokeWidth={1.5}
         />
       </AreaChart>
     </ResponsiveContainer>
@@ -89,11 +94,16 @@ export function SeverityBarChart({ data }: { data: SeverityDatum[] }) {
           contentStyle={{
             background: "var(--bg-elevated)",
             border: "1px solid var(--border-secondary)",
-            borderRadius: 8,
-            fontSize: 12,
+            borderRadius: 2,
+            fontSize: 11,
+            fontFamily: "var(--mono)",
+            padding: "6px 8px",
           }}
+          itemStyle={{ color: "var(--text-primary)" }}
+          labelStyle={{ color: "var(--text-tertiary)", fontSize: 10 }}
+          cursor={{ fill: "var(--bg-card-hover)" }}
         />
-        <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20} />
+        <Bar dataKey="count" radius={[0, 0, 0, 0]} barSize={16} />
       </BarChart>
     </ResponsiveContainer>
   );

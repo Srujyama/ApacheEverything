@@ -16,39 +16,77 @@ spec:
       labels:
         app.kubernetes.io/name: {{ include "sunny.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        # Force pod restart on secret/config changes.
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
     spec:
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ include "sunny.serviceAccountName" . }}
+      {{- end }}
+      securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: sunny
           image: {{ include "sunny.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext: {{- toYaml .Values.containerSecurityContext | nindent 12 }}
           ports:
-            - containerPort: 3000
+            - name: http
+              containerPort: 3000
+              protocol: TCP
           env:
             - name: SUNNY_ADDR
               value: ":3000"
             - name: SUNNY_DATA_DIR
               value: "/data"
-          {{- if or .Values.auth.passwordHash .Values.auth.sessionKey .Values.secrets.nasaFirmsKey .Values.secrets.openaqApiKey }}
+            {{- if .Values.storage.dsn }}
+            - name: SUNNY_STORAGE_DSN
+              value: {{ .Values.storage.dsn | quote }}
+            {{- end }}
+            {{- if .Values.alerts.dlqPath }}
+            - name: SUNNY_ALERTS_DLQ_PATH
+              value: {{ .Values.alerts.dlqPath | quote }}
+            {{- end }}
+          {{- if include "sunny.hasSecrets" . }}
           envFrom:
             - secretRef:
                 name: {{ include "sunny.fullname" . }}
           {{- end }}
           livenessProbe:
             httpGet:
-              path: /api/health
-              port: 3000
-            initialDelaySeconds: 10
-            periodSeconds: 30
+              path: {{ .Values.probes.liveness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
           readinessProbe:
             httpGet:
-              path: /api/health
-              port: 3000
-            initialDelaySeconds: 5
-            periodSeconds: 10
+              path: {{ .Values.probes.readiness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+          {{- if .Values.probes.startup.enabled }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.probes.startup.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.startup.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+          {{- end }}
           resources: {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
             - name: data
               mountPath: /data
+            # Writable tmpfs for any process scratch writes — the root FS is
+            # read-only thanks to containerSecurityContext.
+            - name: tmp
+              mountPath: /tmp
       volumes:
         - name: data
           {{- if .Values.persistence.enabled }}
@@ -57,6 +95,10 @@ spec:
           {{- else }}
           emptyDir: {}
           {{- end }}
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
       {{- with .Values.nodeSelector }}
       nodeSelector: {{- toYaml . | nindent 8 }}
       {{- end }}

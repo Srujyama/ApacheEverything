@@ -1,12 +1,23 @@
 # Default values for sunny.
+#
+# Sunny is single-instance by design: DuckDB is embedded and single-writer.
+# Phase 11 introduces multi-tenant horizontal scaling; until then, prefer
+# vertical scaling (more CPU/memory on one pod) over horizontal.
+
 image:
   repository: ghcr.io/sunny/sunny
   tag: "" # defaults to chart appVersion
   pullPolicy: IfNotPresent
+  # Optional sha256 digest to pin a specific image. When set, overrides tag.
+  # Use this for air-gapped deployments and supply-chain attestation.
+  digest: ""
+  # Image pull secrets for private registries (e.g., behind a corporate mirror).
+  pullSecrets: []
 
 service:
   type: ClusterIP
   port: 3000
+  annotations: {}
 
 ingress:
   enabled: false
@@ -21,20 +32,57 @@ persistence:
   storageClass: ""
   accessMode: ReadWriteOnce
 
-# Enable single-password auth by setting passwordHash to a bcrypt string.
-# Generate with: docker run --rm ghcr.io/sunny/sunny:latest sunny-cli hash-password 'yourpw'
+# ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
 auth:
+  # Single-password mode. Generate with:
+  #   docker run --rm ghcr.io/sunny/sunny:latest sunny-cli hash-password 'yourpw'
   passwordHash: ""
-  # Optional explicit session key (32+ random bytes). Random if empty —
-  # cookies won't survive pod restarts unless you set this.
+  # Optional explicit session key (32+ random bytes). Random per-restart if
+  # empty — set this so cookies survive pod restarts.
   sessionKey: ""
+  # Bearer tokens for API/CLI clients. Comma-separated, each >= 16 chars.
+  apiTokens: ""
 
-# Connector secrets. Both connectors idle gracefully without their key.
+# OIDC (Phase 0.6). Activated when issuer + clientId + redirectUrl are set.
+oidc:
+  issuer: ""
+  clientId: ""
+  clientSecret: ""
+  redirectUrl: ""
+  # Space-separated. Defaults to "openid profile email" when empty.
+  scopes: ""
+
+# ---------------------------------------------------------------------------
+# Storage
+# ---------------------------------------------------------------------------
+# Override the default DuckDB-on-PVC layout. When non-empty, takes precedence
+# over the PVC mount. Example: "iceberg://catalog.example.com/warehouse"
+# (Phase 1+) or "clickhouse://default:@chproxy:8123/sunny" (Phase 2.5+).
+storage:
+  dsn: ""
+
+# ---------------------------------------------------------------------------
+# Alert dispatcher (Phase 0.5)
+# ---------------------------------------------------------------------------
+alerts:
+  webhookUrl: ""
+  slackUrl: ""
+  # Path inside the data directory where the file-backed dead-letter store
+  # writes its JSONL log. Empty → in-memory ring buffer (lost on restart).
+  dlqPath: "/data/alerts-dlq.jsonl"
+
+# ---------------------------------------------------------------------------
+# Connector secrets. Connectors idle gracefully without their key.
+# ---------------------------------------------------------------------------
 secrets:
   nasaFirmsKey: ""
   openaqApiKey: ""
 
-# Pod-level resources. The default install on a single VPS is fine with this.
+# ---------------------------------------------------------------------------
+# Pod-level resources. The default install on a single VPS-sized node is fine.
+# ---------------------------------------------------------------------------
 resources:
   requests:
     cpu: 100m
@@ -43,6 +91,86 @@ resources:
     cpu: 1000m
     memory: 1Gi
 
+# ---------------------------------------------------------------------------
+# Pod / container security context.
+# Hardened by default: non-root, read-only root fs, capabilities dropped.
+# ---------------------------------------------------------------------------
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# Topology + scheduling.
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+# Pod disruption budget. Off by default because Sunny is single-replica;
+# enable when running with replicaCount > 1 (Phase 11+).
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# Service account. Disabled by default — Sunny doesn't need K8s API access
+# until Phase 3 (Spark-on-K8s compute). Enable + set rules when that ships.
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Prometheus integration. ServiceMonitor needs prometheus-operator installed
+# in-cluster. When false, scrape /metrics directly via your scrape config.
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s
+  labels: {}
+  annotations: {}
+
+# NetworkPolicy. Restrict ingress to specific namespaces/pods. Off by default
+# to avoid surprising users on clusters without a CNI that honors NPs.
+networkPolicy:
+  enabled: false
+  ingress: []
+    # Example:
+    # - from:
+    #     - namespaceSelector:
+    #         matchLabels:
+    #           name: monitoring
+    #   ports:
+    #     - port: 3000
+    #       protocol: TCP
+
+# ---------------------------------------------------------------------------
+# Probes — use the Kubernetes-native /healthz + /readyz (no /api prefix so
+# probes don't trip auth, CORS, or rate limits).
+# ---------------------------------------------------------------------------
+probes:
+  liveness:
+    path: /healthz
+    initialDelaySeconds: 10
+    periodSeconds: 30
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    path: /readyz
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  startup:
+    enabled: false
+    path: /healthz
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    failureThreshold: 30

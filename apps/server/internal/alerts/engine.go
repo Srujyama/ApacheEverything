@@ -33,6 +33,10 @@ type Engine struct {
 	// (rule, source) within RuleDedupeWindow when a connector republishes.
 	dedupe       map[string]time.Time
 	dedupeWindow time.Duration
+
+	// dispatcher is optional. If set, each triggered alert is also handed
+	// to the configured notifiers (webhook, slack, log, …).
+	dispatcher *Dispatcher
 }
 
 // New constructs an Engine. Caller is responsible for calling Run/Close.
@@ -44,6 +48,13 @@ func New(b *bus.Bus, store storage.Storage, logger *slog.Logger) *Engine {
 		dedupe:       map[string]time.Time{},
 		dedupeWindow: 5 * time.Minute,
 	}
+}
+
+// WithDispatcher installs the dispatcher used for outbound notifications.
+// Returns the engine for chaining.
+func (e *Engine) WithDispatcher(d *Dispatcher) *Engine {
+	e.dispatcher = d
+	return e
 }
 
 // SeedDefaultRule installs a critical-severity rule if no rules exist yet.
@@ -165,6 +176,11 @@ func (e *Engine) evaluate(ctx context.Context, r sdk.Record) {
 		}
 		if err := e.store.InsertAlert(ctx, alert); err != nil {
 			e.logger.Warn("alerts: insert", "err", err)
+		}
+		// Fan out to configured notifiers. Dispatcher runs notifiers
+		// concurrently and applies retry+DLQ semantics.
+		if e.dispatcher != nil {
+			go e.dispatcher.Dispatch(ctx, alert)
 		}
 	}
 }

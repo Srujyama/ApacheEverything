@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/sunny/sunny/apps/server/internal/alerts"
 	"github.com/sunny/sunny/apps/server/internal/auth"
 	"github.com/sunny/sunny/apps/server/internal/bus"
 	"github.com/sunny/sunny/apps/server/internal/connectors"
@@ -40,6 +41,7 @@ type Deps struct {
 	DataDir     string // for /api/backup; if empty, the endpoint returns 503.
 	QueryRPM    int    // requests per minute per IP for /api/query and /api/export. 0 → default 10.
 	CORSOrigins string // comma-separated list of allowed origins, or "*". Empty disables CORS.
+	AlertDLQ    alerts.DeadLetterStore // optional; exposed via /api/alerts/deadletters when set.
 }
 
 func NewRouter(d Deps) http.Handler {
@@ -58,7 +60,7 @@ func NewRouter(d Deps) http.Handler {
 
 	records := &recordsAPI{store: d.Storage}
 	ts := &timeseriesAPI{store: d.Storage}
-	alerts := &alertsAPI{store: d.Storage}
+	alertsHandler := &alertsAPI{store: d.Storage, dlq: d.AlertDLQ}
 	exp := &exportAPI{store: d.Storage}
 	qry := &queryAPI{store: d.Storage}
 	met := &metricsAPI{runtime: d.Runtime, store: d.Storage}
@@ -112,11 +114,12 @@ func NewRouter(d Deps) http.Handler {
 				})
 			}
 
-			r.Get("/alerts", alerts.listAlerts)
-			r.Post("/alerts/{id}/ack", alerts.ackAlert)
-			r.Get("/alerts/rules", alerts.listRules)
-			r.Post("/alerts/rules", alerts.saveRule)
-			r.Delete("/alerts/rules/{id}", alerts.deleteRule)
+			r.Get("/alerts", alertsHandler.listAlerts)
+			r.Post("/alerts/{id}/ack", alertsHandler.ackAlert)
+			r.Get("/alerts/rules", alertsHandler.listRules)
+			r.Post("/alerts/rules", alertsHandler.saveRule)
+			r.Delete("/alerts/rules/{id}", alertsHandler.deleteRule)
+			r.Get("/alerts/deadletters", alertsHandler.listDeadLetters)
 		})
 
 		// Push-connector ingest path. Intentionally NOT behind the session-

@@ -85,6 +85,22 @@ func main() {
 
 	// Alert engine subscribes before connectors start so we don't miss early records.
 	alertEngine := alerts.New(b, store, logger)
+	// Wire notification dispatcher: log notifier always on; webhook/slack
+	// activated by env. Dead letters land in SUNNY_ALERTS_DLQ_PATH (or
+	// memory if unset; logged below).
+	notifiers := []alerts.Notifier{&alerts.LogNotifier{Logger: logger}}
+	if u := os.Getenv("SUNNY_ALERTS_WEBHOOK_URL"); u != "" {
+		notifiers = append(notifiers, &alerts.WebhookNotifier{URLStr: u})
+		logger.Info("alerts: webhook notifier enabled")
+	}
+	if u := os.Getenv("SUNNY_ALERTS_SLACK_URL"); u != "" {
+		notifiers = append(notifiers, &alerts.SlackNotifier{WebhookURL: u})
+		logger.Info("alerts: slack notifier enabled")
+	}
+	dlq, dlqDesc := alerts.ResolveDeadLetterStore()
+	logger.Info("alerts: dead-letter store", "type", dlqDesc)
+	dispatcher := alerts.NewDispatcher(notifiers, dlq, alerts.DefaultRetryPolicy(), logger)
+	alertEngine.WithDispatcher(dispatcher)
 	if err := alertEngine.SeedDefaultRule(rootCtx); err != nil {
 		logger.Warn("seed default alert rule", "err", err)
 	}
@@ -142,6 +158,7 @@ func main() {
 			Logger: logger, Runtime: rt, Bus: b, Storage: store,
 			Auth: authMgr, QueryRPM: queryRPM, DataDir: cfg.DataDir,
 			CORSOrigins: os.Getenv("SUNNY_CORS_ORIGINS"),
+			AlertDLQ:    dlq,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

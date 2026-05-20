@@ -23,6 +23,11 @@ func accessLogMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 				return
 			}
 			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+			// Expose the request ID so clients can correlate server logs
+			// when they file a bug or run a load test.
+			if rid := middleware.GetReqID(r.Context()); rid != "" {
+				w.Header().Set("X-Request-Id", rid)
+			}
 			start := time.Now()
 			next.ServeHTTP(ww, r)
 			elapsed := time.Since(start)
@@ -61,7 +66,10 @@ func accessLogMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 // (security-relevant) on purpose.
 func shouldSkipLog(path string) bool {
 	switch path {
-	case "/api/health", "/api/version":
+	case "/api/health", "/api/version",
+		"/api/v1/health", "/api/v1/version",
+		"/healthz", "/readyz",
+		"/metrics":
 		return true
 	}
 	// Static assets — embedded SPA. Most are fingerprinted and cached.

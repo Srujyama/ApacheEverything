@@ -134,6 +134,12 @@ func NewRouter(d Deps) http.Handler {
 	// Legacy alias. Logged as deprecated by accesslog middleware; remove in v2.
 	r.Route("/api", mountAPI)
 
+	// Prometheus scrape endpoint. Sits outside /api so scrapers don't need
+	// to learn about API versioning. Unauthenticated by default; gate via
+	// the network or front it with a reverse proxy.
+	prom := &prometheusAPI{runtime: d.Runtime, store: d.Storage, dlq: d.AlertDLQ}
+	r.Get("/metrics", prom.handle)
+
 	// Kubernetes-style liveness / readiness probes. Public, outside /api so
 	// probes don't trip auth, CORS, or rate limits.
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {

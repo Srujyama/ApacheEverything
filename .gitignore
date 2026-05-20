@@ -44,3 +44,6 @@ data/
 *.njsproj
 *.sln
 *.sw?
+
+# Stray local binary (created by go build in repo root)
+/sunny

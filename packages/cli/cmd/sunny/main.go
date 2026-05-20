@@ -61,6 +61,12 @@ func main() {
 		err = watchCmd(args)
 	case "connectors":
 		err = connectorsCmd(args)
+	case "doctor":
+		err = doctorCmd(args)
+	case "migrate":
+		err = migrateCmd(args)
+	case "alerts":
+		err = alertsCmd(args)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n\n", cmd)
 		usage()
@@ -83,6 +89,9 @@ func usage() {
 	fmt.Println("  sunny-cli query   [--server URL] [--token T] \"SELECT ...\"")
 	fmt.Println("  sunny-cli watch   [--server URL] [--token T] [--connector ID]")
 	fmt.Println("  sunny-cli connectors [instances|types]  list running or available connectors")
+	fmt.Println("  sunny-cli doctor   [--server URL]      check the server is reachable and healthy")
+	fmt.Println("  sunny-cli migrate  [--from DSN] [--to DSN]    move data between storage backends")
+	fmt.Println("  sunny-cli alerts deadletters [--server URL]   list alerts that exhausted retries")
 	fmt.Println()
 	fmt.Println("Server URL defaults to http://localhost:3000 (or $SUNNY_SERVER).")
 	fmt.Println("Auth token defaults to $SUNNY_TOKEN.")

@@ -83,12 +83,30 @@ func TestHealthPublic(t *testing.T) {
 func TestVersionShape(t *testing.T) {
 	srv, _, _ := setup(t, nil)
 	res := mustGet(t, srv.URL+"/api/version")
-	var body map[string]string
+	var body map[string]any
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 		t.Fatal(err)
 	}
-	if body["version"] != Version {
-		t.Fatalf("version = %q, want %q", body["version"], Version)
+	if got, _ := body["version"].(string); got != Version {
+		t.Fatalf("version = %q, want %q", got, Version)
+	}
+	if got, _ := body["apiVersion"].(float64); int(got) != APIVersion {
+		t.Fatalf("apiVersion = %v, want %d", body["apiVersion"], APIVersion)
+	}
+}
+
+func TestVersionedRouteWorks(t *testing.T) {
+	srv, _, _ := setup(t, nil)
+	res := mustGet(t, srv.URL+"/api/v1/version")
+	if res.StatusCode != 200 {
+		t.Fatalf("v1 status %d", res.StatusCode)
+	}
+	var body map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := body["version"].(string); got != Version {
+		t.Fatalf("v1 version = %q, want %q", got, Version)
 	}
 }
 

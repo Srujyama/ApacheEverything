@@ -31,41 +31,11 @@ import (
 	sdk "github.com/sunny/sunny/packages/sdk-go"
 )
 
-// Storage is the contract every storage backend implements.
-type Storage interface {
-	// Write persists a batch of records. Empty slice is a no-op.
-	Write(ctx context.Context, records []sdk.Record) error
-
-	// Recent returns the latest n records across all connectors, newest first.
-	Recent(ctx context.Context, limit int) ([]sdk.Record, error)
-
-	// ByConnector returns records for one connector, optionally bounded by
-	// time. Zero-value times mean "unbounded" on that side.
-	ByConnector(ctx context.Context, connectorID string, from, to time.Time, limit int) ([]sdk.Record, error)
-
-	// SaveCheckpoint and LoadCheckpoint persist small strings keyed by
-	// (instanceID, key). Used by pull connectors to resume after a restart.
-	SaveCheckpoint(ctx context.Context, instanceID, key, value string) error
-	LoadCheckpoint(ctx context.Context, instanceID, key string) (string, error)
-
-	// CountByConnector returns the total record count grouped by connector_id.
-	CountByConnector(ctx context.Context) (map[string]int64, error)
-
-	// Timeseries returns time-bucketed record counts. If connectorID is empty,
-	// counts across all connectors. bucket must be a non-zero positive duration.
-	Timeseries(ctx context.Context, connectorID string, from, to time.Time, bucket time.Duration) ([]TimeseriesBucket, error)
-
-	// Alerts: rules + triggered alerts.
-	SaveRule(ctx context.Context, r AlertRule) error
-	DeleteRule(ctx context.Context, id string) error
-	ListRules(ctx context.Context) ([]AlertRule, error)
-	InsertAlert(ctx context.Context, a Alert) error
-	ListAlerts(ctx context.Context, limit int) ([]Alert, error)
-	AckAlert(ctx context.Context, id string, at time.Time) error
-
-	// Close releases resources.
-	Close() error
-}
+// Storage is the legacy umbrella interface every storage backend implements.
+// New code should prefer the composable interfaces in backend.go (RecordStore,
+// CheckpointStore, AlertStore, RuleStore) or the Backend alias. Storage is
+// kept for backwards compatibility and is identical in shape to Backend.
+type Storage = Backend
 
 // TimeseriesBucket is one bucket of the Timeseries result.
 type TimeseriesBucket struct {

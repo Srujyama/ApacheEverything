@@ -18,6 +18,17 @@ import (
 
 const Version = "0.1.0"
 
+// APIVersion is the current major version exposed under /api/v{N}/.
+//
+// Compatibility policy:
+//   - Additive changes (new endpoints, new optional fields) ship under the
+//     current /api/v1/ prefix without bumping APIVersion.
+//   - Breaking changes (removed endpoints, removed fields, semantic changes)
+//     require a new /api/v2/ tree mounted alongside v1.
+//   - Legacy /api/<endpoint> (unversioned) paths are deprecated aliases for
+//     /api/v1/<endpoint>. They will be removed in a future major release.
+const APIVersion = 1
+
 // Deps is what NewRouter needs from main. Keeping it explicit makes the
 // router unit-testable without touching globals.
 type Deps struct {
@@ -53,7 +64,12 @@ func NewRouter(d Deps) http.Handler {
 	met := &metricsAPI{runtime: d.Runtime, store: d.Storage}
 	bak := &backupAPI{dataDir: d.DataDir}
 
-	r.Route("/api", func(r chi.Router) {
+	// mountAPI installs the full v1 surface at the caller-chosen prefix. We
+	// mount it twice: under /api/v1/ (canonical) and /api/ (legacy alias).
+	// Both serve the same code; the alias will be removed in a future major
+	// release. This shape is the seam Phase 1+ uses to introduce /api/v2/
+	// without disturbing v1 callers.
+	mountAPI := func(r chi.Router) {
 		// Always-public routes.
 		r.Get("/health", healthHandler)
 		r.Get("/version", versionHandler)
@@ -109,7 +125,11 @@ func NewRouter(d Deps) http.Handler {
 		// own token via X-Sunny-Token instead. See connectors/webhook.
 		r.HandleFunc("/ingest/{id}", pushHandler(d.Runtime))
 		r.HandleFunc("/ingest/{id}/*", pushHandler(d.Runtime))
-	})
+	}
+
+	r.Route("/api/v1", mountAPI)
+	// Legacy alias. Logged as deprecated by accesslog middleware; remove in v2.
+	r.Route("/api", mountAPI)
 
 	// Kubernetes-style liveness / readiness probes. Public, outside /api so
 	// probes don't trip auth, CORS, or rate limits.
@@ -154,8 +174,9 @@ func healthHandler(w http.ResponseWriter, _ *http.Request) {
 
 func versionHandler(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"version": Version,
-		"phase":   "v0.1",
+		"version":    Version,
+		"apiVersion": APIVersion,
+		"phase":      "v0.1",
 	})
 }
 

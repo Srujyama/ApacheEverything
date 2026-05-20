@@ -56,14 +56,23 @@ func main() {
 		logger.Error("create data dir", "dir", cfg.DataDir, "err", err)
 		os.Exit(1)
 	}
-	dbPath := filepath.Join(cfg.DataDir, "sunny.duckdb")
-	store, err := storage.Open(dbPath)
+	// Resolve storage backend.
+	//
+	// Precedence (highest first):
+	//  1. SUNNY_STORAGE_DSN env (e.g., "iceberg://...", "clickhouse://...").
+	//     Required once we ship non-DuckDB backends in Phase 1+.
+	//  2. Bare-path DuckDB at <DataDir>/sunny.duckdb (legacy / default).
+	storageDSN := os.Getenv("SUNNY_STORAGE_DSN")
+	if storageDSN == "" {
+		storageDSN = filepath.Join(cfg.DataDir, "sunny.duckdb")
+	}
+	store, err := storage.OpenDSN(context.Background(), storageDSN)
 	if err != nil {
-		logger.Error("open storage", "path", dbPath, "err", err)
+		logger.Error("open storage", "dsn", storageDSN, "err", err)
 		os.Exit(1)
 	}
 	defer func() { _ = store.Close() }()
-	logger.Info("storage opened", "path", dbPath)
+	logger.Info("storage opened", "dsn", storageDSN)
 
 	b := bus.New(256, 64)
 

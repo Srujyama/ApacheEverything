@@ -6,6 +6,43 @@ to [semantic versioning](https://semver.org/) starting at v1.0.
 
 ## [Unreleased]
 
+### Added — Phase 0 foundation hardening (toward v1.0)
+- **PLAN.md** roadmap from v0.1 → v2.2 (self-hosted Databricks). 13
+  phases with status tables, deliverables, file layouts, exit criteria.
+  See [docs/plans/](docs/plans/) for per-phase contributor briefs (1, 2,
+  3 written; 4–12 written on demand).
+- **API versioning.** Handlers mounted under `/api/v1/`; `/api/...` kept
+  as deprecated alias. `/api/version` now reports `apiVersion`.
+- **Storage backend registry.** `storage.OpenDSN()` parses
+  `duckdb://`, `iceberg://` (Phase 1+), `clickhouse://` (Phase 2.5+).
+  `SUNNY_STORAGE_DSN` env selects the backend. `Storage` is now an
+  alias of the composable `Backend` interface (RecordStore +
+  CheckpointStore + AlertStore + RuleStore + Closer).
+- **Alert dispatcher + dead-letter queue.** Notifier interface with
+  LogNotifier, WebhookNotifier, SlackNotifier impls; retry with
+  exponential backoff; permanent-error short-circuit; per-process
+  fan-out. DLQ has Memory + File (JSONL) implementations selected by
+  `SUNNY_ALERTS_DLQ_PATH`. New `/api/v1/alerts/deadletters` endpoint.
+- **OIDC login** (Authorization Code + PKCE). Discovery, JWKS cache,
+  RS256 verify (iss/aud/exp/nonce). Activated by `SUNNY_OIDC_ISSUER`
+  + `_CLIENT_ID` + `_REDIRECT_URL`. Compatible with Okta, Auth0,
+  Keycloak, Authentik, dex.
+- **Prometheus /metrics endpoint** in exposition format. Zero deps.
+  Exposes build_info, uptime, go_*, connector_state, records_total,
+  alerts_total, dead_letters_total.
+- **X-Request-Id response header** on every API response.
+- **sunny-cli additions:** `doctor` (8-check server health probe),
+  `migrate --from --to` (copy DuckDB → DuckDB; iceberg:// in Phase 1),
+  `alerts deadletters` (list DLQ).
+- **Connector SDK v1 frozen.** Reflection-based freeze test pins every
+  field name, JSON tag, Go type, and method signature. TS SDK
+  expanded to mirror Go SDK.
+- **Helm chart hardening.** Hardened security context (non-root,
+  read-only root FS, drop ALL caps, RuntimeDefault seccomp), image
+  digest pinning, /healthz + /readyz probes, ServiceAccount,
+  PodDisruptionBudget, ServiceMonitor, NetworkPolicy templates.
+  OIDC + storage DSN + alert URLs surface as values.
+
 ### Added
 - **MQTT stream connector.** `connectors/mqtt`. Reference implementation
   for stream-mode connectors. Subscribes to one or more topic patterns,

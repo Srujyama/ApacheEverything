@@ -91,10 +91,10 @@ document" section before starting work on a phase**, and always update the
 
 | Phase | Theme                                  | Status     | Target  |
 |-------|----------------------------------------|------------|---------|
-| 0     | Foundation hardening (current Sunny)   | 🟡 v0.1    | v1.0    |
-| 1     | Object storage + Iceberg/Delta        | ⬜ Not started | v1.1 |
-| 2     | Iceberg REST Catalog + governance      | ⬜          | v1.2    |
-| 3     | Spark-on-Kubernetes compute            | ⬜          | v1.3    |
+| 0     | Foundation hardening (current Sunny)   | 🟢 Phase 0 done | v1.0 |
+| 1     | Object storage + Iceberg/Delta         | ⬜ Sub-plan ready | v1.1 |
+| 2     | Iceberg REST Catalog + governance      | ⬜ Sub-plan ready | v1.2 |
+| 3     | Spark-on-Kubernetes compute            | ⬜ Sub-plan ready | v1.3 |
 | 4     | SQL warehouses (Trino/Spark SQL)       | ⬜          | v1.4    |
 | 5     | Notebooks (Jupyter-compatible)         | ⬜          | v1.5    |
 | 6     | Jobs + orchestration                   | ⬜          | v1.6    |
@@ -121,16 +121,16 @@ connector SDK, auth, alert engine, and CLI are battle-tested. Don't skip.
 
 | Milestone | Owner | Status |
 |-----------|-------|--------|
-| 0.1 Stabilize HTTP API + versioning | unclaimed | ⬜ |
-| 0.2 Cover ingest pipeline with property tests | unclaimed | ⬜ |
-| 0.3 DuckDB → external storage adapter interface | unclaimed | ⬜ |
-| 0.4 Connector SDK v1 freeze (Go + TS) | unclaimed | ⬜ |
-| 0.5 Alert engine: dedup + retry + DLQ | unclaimed | ⬜ |
-| 0.6 Auth: OIDC + service tokens (in addition to single password) | unclaimed | ⬜ |
-| 0.7 Observability of self (Prometheus metrics, structured logs, traces) | unclaimed | ⬜ |
-| 0.8 CLI v1: hash-password, backup, restore, migrate, doctor | unclaimed | ⬜ |
-| 0.9 Helm chart hardening + air-gapped install docs | unclaimed | ⬜ |
-| 0.10 v1.0 release cut + signed artifacts (cosign) | unclaimed | ⬜ |
+| 0.1 Stabilize HTTP API + versioning | @claude (2026-05-19) | 🟢 |
+| 0.2 Cover ingest pipeline with property tests | @claude (2026-05-19) | 🟢 |
+| 0.3 DuckDB → external storage adapter interface | @claude (2026-05-19) | 🟢 |
+| 0.4 Connector SDK v1 freeze (Go + TS) | @claude (2026-05-19) | 🟢 |
+| 0.5 Alert engine: dedup + retry + DLQ | @claude (2026-05-19) | 🟢 |
+| 0.6 Auth: OIDC + service tokens (in addition to single password) | @claude (2026-05-19) | 🟢 |
+| 0.7 Observability of self (Prometheus metrics, structured logs, traces) | @claude (2026-05-19) | 🟢 |
+| 0.8 CLI v1: hash-password, backup, restore, migrate, doctor | @claude (2026-05-19) | 🟢 |
+| 0.9 Helm chart hardening + air-gapped install docs | @claude (2026-05-19) | 🟢 |
+| 0.10 v1.0 release cut + signed artifacts (cosign) | unclaimed | ⬜ (sub-plans 1–3 written) |
 
 ### Phase 0 deliverables
 

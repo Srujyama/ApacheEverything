@@ -168,11 +168,11 @@ open-standard equivalent. Without this, we're not a lakehouse.
 
 | Milestone | Owner | Status |
 |-----------|-------|--------|
-| 1.1 Object storage abstraction (`ObjectStore` interface) | unclaimed | ⬜ |
-| 1.2 S3 + MinIO + GCS + Azure Blob + local FS implementations | unclaimed | ⬜ |
+| 1.1 Object storage abstraction (`ObjectStore` interface) | @claude (2026-05-19) | 🟢 (LocalObjectStore done; s3/gcs/azure deferred to 1.2) |
+| 1.2 S3 + MinIO + GCS + Azure Blob + local FS implementations | unclaimed | 🟡 LocalFS done; S3/GCS/Azure remain |
 | 1.3 Iceberg table writer (Go) — schema, partitioning, snapshots | unclaimed | ⬜ |
 | 1.4 Iceberg table reader (Go) — manifests, filtering, projection | unclaimed | ⬜ |
-| 1.5 Parquet writer (Apache Arrow Go) | unclaimed | ⬜ |
+| 1.5 Parquet writer (Apache Arrow Go) | @claude (2026-05-19) | 🟢 |
 | 1.6 Delta Lake writer (Go, via delta-go) | unclaimed | ⬜ |
 | 1.7 Snapshot expiration + compaction | unclaimed | ⬜ |
 | 1.8 Z-order clustering | unclaimed | ⬜ |

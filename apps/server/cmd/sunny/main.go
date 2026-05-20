@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -129,6 +130,31 @@ func main() {
 		logger.Error("auth manager", "err", err)
 		os.Exit(1)
 	}
+
+	// Optional OIDC: requires SUNNY_OIDC_ISSUER + SUNNY_OIDC_CLIENT_ID +
+	// SUNNY_OIDC_REDIRECT_URL at minimum. If any are missing or discovery
+	// fails, we log and continue without OIDC.
+	var oidcMgr *auth.OIDCManager
+	if iss := os.Getenv("SUNNY_OIDC_ISSUER"); iss != "" {
+		cfg := auth.OIDCConfig{
+			Issuer:       iss,
+			ClientID:     os.Getenv("SUNNY_OIDC_CLIENT_ID"),
+			ClientSecret: os.Getenv("SUNNY_OIDC_CLIENT_SECRET"),
+			RedirectURL:  os.Getenv("SUNNY_OIDC_REDIRECT_URL"),
+		}
+		if s := os.Getenv("SUNNY_OIDC_SCOPES"); s != "" {
+			cfg.Scopes = strings.Split(s, " ")
+		}
+		ctx, cancel := context.WithTimeout(rootCtx, 15*time.Second)
+		p, err := auth.NewOIDCProvider(ctx, cfg)
+		cancel()
+		if err != nil {
+			logger.Warn("oidc disabled", "err", err)
+		} else {
+			oidcMgr = &auth.OIDCManager{M: authMgr, P: p}
+			logger.Info("oidc enabled", "issuer", iss)
+		}
+	}
 	switch {
 	case authMgr.PasswordEnabled() && authMgr.Enabled():
 		logger.Info("auth: password + token auth ENABLED")
@@ -156,7 +182,8 @@ func main() {
 		Addr: cfg.Addr,
 		Handler: httpapi.NewRouter(httpapi.Deps{
 			Logger: logger, Runtime: rt, Bus: b, Storage: store,
-			Auth: authMgr, QueryRPM: queryRPM, DataDir: cfg.DataDir,
+			Auth: authMgr, OIDC: oidcMgr,
+			QueryRPM: queryRPM, DataDir: cfg.DataDir,
 			CORSOrigins: os.Getenv("SUNNY_CORS_ORIGINS"),
 			AlertDLQ:    dlq,
 		}),

@@ -38,9 +38,10 @@ type Deps struct {
 	Bus         *bus.Bus
 	Storage     storage.Storage
 	Auth        *auth.Manager
-	DataDir     string // for /api/backup; if empty, the endpoint returns 503.
-	QueryRPM    int    // requests per minute per IP for /api/query and /api/export. 0 → default 10.
-	CORSOrigins string // comma-separated list of allowed origins, or "*". Empty disables CORS.
+	OIDC        *auth.OIDCManager // optional; enables /auth/oidc/start + /callback.
+	DataDir     string            // for /api/backup; if empty, the endpoint returns 503.
+	QueryRPM    int               // requests per minute per IP for /api/query and /api/export. 0 → default 10.
+	CORSOrigins string            // comma-separated list of allowed origins, or "*". Empty disables CORS.
 	AlertDLQ    alerts.DeadLetterStore // optional; exposed via /api/alerts/deadletters when set.
 }
 
@@ -81,6 +82,10 @@ func NewRouter(d Deps) http.Handler {
 			r.Get("/auth/status", d.Auth.StatusHandler)
 			r.Post("/auth/login", d.Auth.LoginHandler)
 			r.Post("/auth/logout", d.Auth.LogoutHandler)
+		}
+		if d.OIDC != nil {
+			r.Get("/auth/oidc/start", d.OIDC.StartHandler)
+			r.Get("/auth/oidc/callback", d.OIDC.CallbackHandler)
 		}
 
 		// Authenticated routes (no-op middleware if auth disabled).
